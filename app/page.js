@@ -65,10 +65,15 @@ export default function Home() {
   useEffect(() => {
     // Dynamic import of Leaflet and plugins on the client
     if (typeof window !== "undefined") {
-      Promise.all([
-        import("leaflet"),
-        import("leaflet.markercluster")
-      ]).then(async ([L]) => {
+      import("leaflet").then(async (LModule) => {
+        const L = LModule.default || LModule;
+        window.L = L; // Important: Make L global so plugins can attach
+        LRef.current = L;
+
+        // Load plugins sequentially that depend on global window.L
+        await import("leaflet.markercluster");
+        await import("leaflet.heat");
+
         // Fix Leaflet marker icon paths
         delete L.Icon.Default.prototype._getIconUrl;
         L.Icon.Default.mergeOptions({
@@ -76,11 +81,6 @@ export default function Home() {
           iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.1/images/marker-icon.png",
           shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.1/images/marker-shadow.png"
         });
-
-        LRef.current = L;
-
-        // Initialize Heatmap plugin
-        await import("leaflet.heat");
 
         if (!mapInstance.current && mapRef.current) {
           const map = L.map(mapRef.current, {
@@ -114,6 +114,8 @@ export default function Home() {
           await refreshMetrics();
           await refreshComplaints();
         }
+      }).catch(err => {
+        console.error("Leaflet initialization failed:", err);
       });
     }
 
