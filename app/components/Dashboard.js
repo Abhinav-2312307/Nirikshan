@@ -171,11 +171,13 @@ export default function Dashboard() {
   };
 
   const loadPlacesLayer = async () => {
+    const data = await api("/api/places?limit=300");
     const map = mapInstance.current;
     if (!map) return;
 
-    const data = await api("/api/places?limit=300");
-    if (placesLayerRef.current) map.removeLayer(placesLayerRef.current);
+    if (placesLayerRef.current && map.hasLayer(placesLayerRef.current)) {
+      map.removeLayer(placesLayerRef.current);
+    }
 
     const layer = L.geoJSON(data, {
       style: (feature) => {
@@ -222,9 +224,14 @@ export default function Dashboard() {
       else level = "submicro";
     }
 
-    if (aqiLayerRef.current) map.removeLayer(aqiLayerRef.current);
-
     const data = await api(`/api/areas?level=${level}`);
+    const activeMap = mapInstance.current;
+    if (!activeMap) return;
+
+    if (aqiLayerRef.current && activeMap.hasLayer(aqiLayerRef.current)) {
+      activeMap.removeLayer(aqiLayerRef.current);
+    }
+
     const layer = L.geoJSON(data, {
       style: (feature) => ({
         fillColor: scoreToColor(feature.properties.area_score),
@@ -241,20 +248,20 @@ export default function Dashboard() {
         layer.on("click", (e) => {
           L.DomEvent.stopPropagation(e);
           const center = layer.getBounds().getCenter();
-          const currentZoom = map.getZoom();
+          const currentZoom = activeMap.getZoom();
           let nextZoom = currentZoom + 3;
           if (level === "india-states") nextZoom = 7;
           else if (level === "up-districts") nextZoom = 10;
           else if (level === "kanpur-subdistricts") nextZoom = 13;
           else if (level === "macro") nextZoom = 15;
-          map.flyTo(center, nextZoom, { duration: 0.8 });
+          activeMap.flyTo(center, nextZoom, { duration: 0.8 });
         });
       }
     });
 
     aqiLayerRef.current = layer;
     if (activeMode === "aqi") {
-      layer.addTo(map);
+      layer.addTo(activeMap);
     }
   };
 
@@ -264,11 +271,10 @@ export default function Dashboard() {
   };
 
   const refreshComplaints = async () => {
+    const list = await api("/api/complaints?include_moderation=true");
     const map = mapInstance.current;
     const markerCluster = clusterLayerRef.current;
-    if (!map) return;
-
-    const list = await api("/api/complaints?include_moderation=true");
+    if (!map || !markerCluster) return;
 
     if (activeMode === "explore") {
       markerCluster.clearLayers();
