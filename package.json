@@ -1,14 +1,25 @@
 {
-  "name": "civic-map-project",
+  "name": "nirikshan",
   "version": "1.0.0",
   "private": true,
-  "description": "Naubasta civic issue reporting and area quality mapping MVP",
-  "main": "src/server/server.js",
+  "description": "Nirikshan - Civic issue reporting and area quality mapping system",
   "scripts": {
-    "start": "node src/server/server.js",
-    "dev": "node --watch src/server/server.js"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
   },
   "dependencies": {
-    "express": "^4.22.1"
+    "leaflet": "^1.9.4",
+    "mongodb": "^6.3.0",
+    "next": "16.2.10",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.10",
+    "tailwindcss": "^4"
   }
 }

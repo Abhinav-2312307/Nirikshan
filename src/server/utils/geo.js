@@ -82,7 +82,7 @@ function projectPointToSegment(p, a, b) {
   return [a[0] + abx * t, a[1] + aby * t];
 }
 
-module.exports = {
+export {
   pointInPolygon,
   haversineMeters,
   centroidOfPolygon,

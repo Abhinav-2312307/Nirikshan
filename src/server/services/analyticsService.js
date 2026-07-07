@@ -1,7 +1,7 @@
-const { listComplaints } = require("./placeService");
+import { listComplaints } from "./placeService";
 
-function getSummary() {
-  const complaints = listComplaints();
+export async function getSummary() {
+  const complaints = await listComplaints();
 
   return {
     total: complaints.length,
@@ -10,5 +10,3 @@ function getSummary() {
     highPriority: complaints.filter((c) => c.severity === 3 && !["Resolved", "Closed"].includes(c.status)).length
   };
 }
-
-module.exports = { getSummary };

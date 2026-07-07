@@ -1,22 +1,13 @@
-const crypto = require("crypto");
-const {
-  getPlaces,
-  savePlaces,
-  getReviews,
-  saveReviews,
-  getComplaints,
-  saveComplaints,
-  getAuthorities,
-  saveAuthorities,
-  getAreas
-} = require("../repositories/dataRepository");
-const {
+import crypto from "crypto";
+import { connectToDatabase } from "../../../lib/mongodb";
+import {
   pointInPolygon,
   haversineMeters,
   pointLineDistanceMeters,
   centroidOfPolygon,
   centerOfFeature
-} = require("../utils/geo");
+} from "../utils/geo";
+import { getAreas } from "../repositories/dataRepository";
 
 const STATUS_FLOW = ["Submitted", "Verified", "Assigned", "In Progress", "Resolved", "Closed"];
 
@@ -28,7 +19,7 @@ function average(values) {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
-function findAreaForPoint(lat, lng) {
+export function findAreaForPoint(lat, lng) {
   const levels = ["submicro", "micro", "macro", "kanpur-subdistricts", "up-districts", "india-states"];
   const point = [lng, lat];
   for (const lvl of levels) {
@@ -70,9 +61,10 @@ function geometryDistanceMeters(point, feature) {
   return Number.POSITIVE_INFINITY;
 }
 
-function getPlaceMetrics(placeId) {
-  const reviews = getReviews().filter((r) => r.place_id === placeId);
-  const complaints = getComplaints().filter((c) => c.place_id === placeId);
+export async function getPlaceMetrics(placeId) {
+  const { db } = await connectToDatabase();
+  const reviews = await db.collection("reviews").find({ place_id: placeId }).toArray();
+  const complaints = await db.collection("complaints").find({ place_id: placeId }).toArray();
   const open = complaints.filter((c) => !["Resolved", "Closed"].includes(c.status) && c.status !== "Moderation");
 
   return {
@@ -83,40 +75,57 @@ function getPlaceMetrics(placeId) {
   };
 }
 
-function listPlaceReviews(placeId) {
-  return getReviews()
-    .filter((item) => item.place_id === placeId)
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+export async function listPlaceReviews(placeId) {
+  const { db } = await connectToDatabase();
+  return await db.collection("reviews")
+    .find({ place_id: placeId })
+    .sort({ created_at: -1 })
+    .toArray();
 }
 
-function listPlaces(filters = {}) {
+export async function listPlaces(filters = {}) {
+  const { db } = await connectToDatabase();
   const q = (filters.q || "").trim().toLowerCase();
   const type = filters.type;
 
-  const features = getPlaces().features
-    .filter((feature) => {
-      if (type && feature.properties.type !== type) return false;
-      if (!q) return true;
+  let query = {};
+  if (type) {
+    query["properties.type"] = type;
+  }
+  if (q) {
+    query["$or"] = [
+      { "properties.name": { $regex: q, $options: "i" } },
+      { "properties.address": { $regex: q, $options: "i" } },
+      { "properties.type": { $regex: q, $options: "i" } }
+    ];
+  }
 
-      const haystack = `${feature.properties.name} ${feature.properties.address || ""} ${feature.properties.type}`.toLowerCase();
-      return haystack.includes(q);
-    })
-    .slice(0, filters.limit || 200)
-    .map((feature) => ({
-      ...feature,
+  const placesList = await db.collection("places").find(query).limit(filters.limit || 200).toArray();
+  
+  const features = [];
+  for (const f of placesList) {
+    const metrics = await getPlaceMetrics(f.properties.place_id);
+    features.push({
+      type: "Feature",
       properties: {
-        ...feature.properties,
-        center: centerOfFeature(feature),
-        metrics: getPlaceMetrics(feature.properties.place_id)
-      }
-    }));
+        ...f.properties,
+        center: centerOfFeature(f),
+        metrics
+      },
+      geometry: f.geometry
+    });
+  }
 
   return { type: "FeatureCollection", features };
 }
 
-function resolvePlace(lat, lng) {
+export async function resolvePlace(lat, lng) {
   const point = [lng, lat];
-  const places = getPlaces().features;
+  const { db } = await connectToDatabase();
+
+  // Find the closest place using a standard array distance check, or geospatial $near if indexed
+  // Since we index places by location, we can fetch all and sort by distance.
+  const places = await db.collection("places").find({}).toArray();
 
   let winner = null;
   let winnerDist = Number.POSITIVE_INFINITY;
@@ -158,19 +167,24 @@ function resolvePlace(lat, lng) {
   return { place: winner, distance_meters: Math.round(winnerDist), is_virtual: false };
 }
 
-function ensurePlaceExists(placeFeature) {
-  const places = getPlaces();
+export async function ensurePlaceExists(placeFeature) {
+  const { db } = await connectToDatabase();
   const placeId = placeFeature.properties.place_id;
 
-  const existing = places.features.find((f) => f.properties.place_id === placeId);
+  const existing = await db.collection("places").findOne({ "properties.place_id": placeId });
   if (existing) return existing;
 
-  places.features.push(placeFeature);
-  savePlaces(places);
+  const doc = {
+    ...placeFeature,
+    location: placeFeature.geometry
+  };
+  delete doc._id; // clean up mongo ID if present
+  
+  await db.collection("places").insertOne(doc);
   return placeFeature;
 }
 
-function addReview(placeId, payload) {
+export async function addReview(placeId, payload) {
   const rating = clamp(Number(payload.rating || 0), 1, 5);
   const comment = String(payload.comment || "").trim();
 
@@ -178,7 +192,7 @@ function addReview(placeId, payload) {
     throw new Error("rating and comment are required");
   }
 
-  const reviews = getReviews();
+  const { db } = await connectToDatabase();
   const review = {
     review_id: crypto.randomUUID(),
     place_id: placeId,
@@ -189,21 +203,17 @@ function addReview(placeId, payload) {
     created_at: new Date().toISOString()
   };
 
-  reviews.push(review);
-  saveReviews(reviews);
+  await db.collection("reviews").insertOne(review);
   return review;
 }
 
-// Multi-Authority Jurisdictional Routing Rules
-function determineRouting(lat, lng, issueType, area) {
+export function determineRouting(lat, lng, issueType, area) {
   const routes = [];
   const areaId = area?.properties?.area_id || "";
   
-  // Find which city or state it belongs to
   let city = area?.properties?.city || "Local";
   let state = area?.properties?.state || "State";
   
-  // If the area is Kanpur Nagar (or sub-regions of it)
   const isKanpur = city.toLowerCase().includes("kanpur") || areaId.includes("KANPUR") || areaId.includes("NAU_");
 
   if (isKanpur) {
@@ -237,7 +247,6 @@ function determineRouting(lat, lng, issueType, area) {
       });
     }
   } else {
-    // General routing for other districts/states
     const cityClean = city !== "Local" ? city : state;
     const municipalName = city !== "Local" ? `${city} Municipal Corporation` : `${state} Public Works Department`;
     const devAuthorityName = city !== "Local" ? `${city} Development Authority` : `${state} Urban Development`;
@@ -281,46 +290,41 @@ function determineRouting(lat, lng, issueType, area) {
   return routes;
 }
 
-function addComplaint(placeFeature, payload) {
-  const place = ensurePlaceExists(placeFeature);
+export async function addComplaint(placeFeature, payload) {
+  const { db } = await connectToDatabase();
+  const place = await ensurePlaceExists(placeFeature);
   const area = findAreaForPoint(payload.latitude, payload.longitude);
   const areaId = place.properties.area_id || area?.properties?.area_id || null;
   const issueType = String(payload.issue_type || "");
   const now = new Date().toISOString();
 
-  // 1. Decoupled Jurisdiction Routing
   const assigned = determineRouting(payload.latitude, payload.longitude, issueType, area);
   const disputedJurisdiction = assigned.length > 1;
-  
-  // Assign main authority properties for compatibility, link all assigned ones
   const mainAuth = assigned[0];
 
-  // 2. AI Spam/NLP Profanity Checks
   const descLower = String(payload.description || "").toLowerCase();
   const suspiciousKeywords = ["spam", "abuse", "fake", "nonsense", "junk", "fraud"];
   const containsSuspicious = suspiciousKeywords.some(keyword => descLower.includes(keyword));
   const profanityFlagged = containsSuspicious || descLower.length < 5;
 
-  // 3. User Trust Score filter
   const trustScore = Number(payload.user_trust_score !== undefined ? payload.user_trust_score : 50);
   const lowTrustScore = trustScore < 30;
 
-  // Determine status (route to Moderation if profanity flagged or low trust score)
   let initialStatus = "Submitted";
   if (profanityFlagged || lowTrustScore) {
     initialStatus = "Moderation";
   }
 
-  // 4. Proximity Duplicate Detection (within 150m, same category, last 7 days)
-  const complaints = getComplaints();
-  let duplicateOf = null;
-  const sameCategoryRecent = complaints.filter(c => {
-    if (c.issue_type !== issueType) return false;
-    const daysDiff = (new Date(now) - new Date(c.created_at)) / 86400000;
-    return daysDiff <= 7 && c.status !== "Closed" && c.status !== "Moderation";
-  });
+  // 4. Duplicate checks
+  const dateLimit = new Date(Date.now() - 7 * 86400000).toISOString();
+  const complaints = await db.collection("complaints").find({
+    issue_type: issueType,
+    status: { $nin: ["Closed", "Moderation"] },
+    created_at: { $gte: dateLimit }
+  }).toArray();
 
-  for (const c of sameCategoryRecent) {
+  let duplicateOf = null;
+  for (const c of complaints) {
     const dist = haversineMeters([payload.longitude, payload.latitude], [c.longitude, c.latitude]);
     if (dist <= 150) {
       duplicateOf = c.complaint_id;
@@ -342,6 +346,10 @@ function addComplaint(placeFeature, payload) {
     description: String(payload.description || "").trim(),
     latitude: Number(payload.latitude),
     longitude: Number(payload.longitude),
+    location: {
+      type: "Point",
+      coordinates: [Number(payload.longitude), Number(payload.latitude)]
+    },
     status: initialStatus,
     disputed_jurisdiction: disputedJurisdiction,
     assigned_authorities: assigned,
@@ -360,128 +368,141 @@ function addComplaint(placeFeature, payload) {
     updated_at: now
   };
 
-  complaints.push(complaint);
-  saveComplaints(complaints);
+  await db.collection("complaints").insertOne(complaint);
   return complaint;
 }
 
-function listComplaints(filters = {}) {
-  const complaints = getComplaints();
+export async function listComplaints(filters = {}) {
+  const { db } = await connectToDatabase();
+  let query = {};
   
-  // Calculate dynamic properties like escalation on the fly
-  return complaints
-    .map(c => {
-      const daysUnresolved = (Date.now() - new Date(c.updated_at || c.created_at).getTime()) / 86400000;
-      const isUnresolved = !["Resolved", "Closed"].includes(c.status);
-      return {
-        ...c,
-        escalated: isUnresolved && daysUnresolved > 30
-      };
-    })
-    .filter((item) => {
-      // Exclude moderation queue complaints from general citizen view unless requested
-      if (!filters.include_moderation && item.status === "Moderation") return false;
-      
-      if (filters.place_id && item.place_id !== filters.place_id) return false;
-      if (filters.area_id && item.area_id !== filters.area_id) return false;
-      
-      if (filters.authority_id) {
-        // Match either main authority or list of assigned authorities
-        const matchesAssigned = item.assigned_authorities?.some(a => a.authority_id === filters.authority_id);
-        if (item.authority_id !== filters.authority_id && !matchesAssigned) return false;
-      }
-      return true;
-    })
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  if (!filters.include_moderation) {
+    query.status = { $ne: "Moderation" };
+  }
+  if (filters.place_id) {
+    query.place_id = filters.place_id;
+  }
+  if (filters.area_id) {
+    query.area_id = filters.area_id;
+  }
+  if (filters.authority_id) {
+    query["$or"] = [
+      { authority_id: filters.authority_id },
+      { "assigned_authorities.authority_id": filters.authority_id }
+    ];
+  }
+
+  const complaints = await db.collection("complaints").find(query).sort({ created_at: -1 }).toArray();
+
+  return complaints.map(c => {
+    const daysUnresolved = (Date.now() - new Date(c.updated_at || c.created_at).getTime()) / 86400000;
+    const isUnresolved = !["Resolved", "Closed"].includes(c.status);
+    return {
+      ...c,
+      _id: undefined,
+      escalated: isUnresolved && daysUnresolved > 30
+    };
+  });
 }
 
-function advanceComplaintStatus(complaintId, requested) {
-  const complaints = getComplaints();
-  const complaint = complaints.find((item) => item.complaint_id === complaintId);
+export async function advanceComplaintStatus(complaintId, requested) {
+  const { db } = await connectToDatabase();
+  const complaint = await db.collection("complaints").findOne({ complaint_id: complaintId });
   if (!complaint) throw new Error("not_found");
 
+  let nextStatus = requested;
   if (requested) {
     if (!STATUS_FLOW.includes(requested) && requested !== "Moderation") throw new Error("invalid_status");
-    complaint.status = requested;
   } else {
     const index = STATUS_FLOW.indexOf(complaint.status);
     if (index === STATUS_FLOW.length - 1) throw new Error("terminal_status");
-    complaint.status = STATUS_FLOW[index + 1];
+    nextStatus = STATUS_FLOW[index + 1];
   }
 
-  complaint.updated_at = new Date().toISOString();
-  saveComplaints(complaints);
-  return complaint;
+  const now = new Date().toISOString();
+  await db.collection("complaints").updateOne(
+    { complaint_id: complaintId },
+    { $set: { status: nextStatus, updated_at: now } }
+  );
+
+  return {
+    ...complaint,
+    _id: undefined,
+    status: nextStatus,
+    updated_at: now
+  };
 }
 
-// Citizen Verification Loop: Confirm or Dispute resolution
-function verifyResolution(complaintId, outcome) {
-  const complaints = getComplaints();
-  const complaint = complaints.find(c => c.complaint_id === complaintId);
+export async function verifyResolution(complaintId, outcome) {
+  const { db } = await connectToDatabase();
+  const complaint = await db.collection("complaints").findOne({ complaint_id: complaintId });
   if (!complaint) throw new Error("not_found");
   if (complaint.status !== "Resolved") throw new Error("not_resolved");
 
-  const authorities = getAuthorities();
   const now = new Date().toISOString();
-
-  // Route assigned authorities
   const authIds = complaint.assigned_authorities?.map(a => a.authority_id) || [complaint.authority_id];
 
-  if (outcome === "Confirmed") {
-    complaint.status = "Closed";
-    complaint.verification_status = "Confirmed";
-    
-    // Reward authority scores (+10 points)
-    authorities.forEach(auth => {
-      if (authIds.includes(auth.authority_id)) {
-        if (!auth.metrics) {
-          auth.metrics = { score: 75, total_resolved: 0, total_disputed: 0 };
-        }
-        auth.metrics.total_resolved = (auth.metrics.total_resolved || 0) + 1;
-        auth.metrics.score = clamp((auth.metrics.score || 75) + 10, 0, 100);
-      }
-    });
-  } else if (outcome === "Disputed") {
-    // Reopen complaint and mark back to In Progress
-    complaint.status = "In Progress";
-    complaint.verification_status = "Disputed";
-    complaint.reopened_count = (complaint.reopened_count || 0) + 1;
+  let nextStatus = complaint.status;
+  let nextVerif = complaint.verification_status;
+  let reopenedCount = complaint.reopened_count || 0;
 
-    // Penalize authority scores (-20 points)
-    authorities.forEach(auth => {
-      if (authIds.includes(auth.authority_id)) {
-        if (!auth.metrics) {
-          auth.metrics = { score: 75, total_resolved: 0, total_disputed: 0 };
-        }
-        auth.metrics.total_disputed = (auth.metrics.total_disputed || 0) + 1;
-        auth.metrics.score = clamp((auth.metrics.score || 75) - 20, 0, 100);
+  if (outcome === "Confirmed") {
+    nextStatus = "Closed";
+    nextVerif = "Confirmed";
+    
+    for (const authId of authIds) {
+      const auth = await db.collection("authorities").findOne({ authority_id: authId });
+      if (auth) {
+        const metrics = auth.metrics || { score: 75, total_resolved: 0, total_disputed: 0 };
+        metrics.total_resolved = (metrics.total_resolved || 0) + 1;
+        metrics.score = clamp((metrics.score || 75) + 10, 0, 100);
+        await db.collection("authorities").updateOne(
+          { authority_id: authId },
+          { $set: { metrics } }
+        );
       }
-    });
+    }
+  } else if (outcome === "Disputed") {
+    nextStatus = "In Progress";
+    nextVerif = "Disputed";
+    reopenedCount += 1;
+
+    for (const authId of authIds) {
+      const auth = await db.collection("authorities").findOne({ authority_id: authId });
+      if (auth) {
+        const metrics = auth.metrics || { score: 75, total_resolved: 0, total_disputed: 0 };
+        metrics.total_disputed = (metrics.total_disputed || 0) + 1;
+        metrics.score = clamp((metrics.score || 75) - 20, 0, 100);
+        await db.collection("authorities").updateOne(
+          { authority_id: authId },
+          { $set: { metrics } }
+        );
+      }
+    }
   } else {
     throw new Error("invalid_outcome");
   }
 
-  complaint.updated_at = now;
-  saveComplaints(complaints);
-  saveAuthorities(authorities);
+  await db.collection("complaints").updateOne(
+    { complaint_id: complaintId },
+    { $set: { status: nextStatus, verification_status: nextVerif, reopened_count: reopenedCount, updated_at: now } }
+  );
 
-  return complaint;
+  return {
+    ...complaint,
+    _id: undefined,
+    status: nextStatus,
+    verification_status: nextVerif,
+    reopened_count: reopenedCount,
+    updated_at: now
+  };
 }
 
-function getPlaceById(placeId) {
-  return getPlaces().features.find((item) => item.properties.place_id === placeId) || null;
+export async function getPlaceById(placeId) {
+  const { db } = await connectToDatabase();
+  const p = await db.collection("places").findOne({ "properties.place_id": placeId });
+  if (p) {
+    p._id = undefined;
+  }
+  return p;
 }
-
-module.exports = {
-  listPlaces,
-  resolvePlace,
-  getPlaceMetrics,
-  listPlaceReviews,
-  addReview,
-  addComplaint,
-  listComplaints,
-  advanceComplaintStatus,
-  verifyResolution,
-  getPlaceById,
-  findAreaForPoint
-};

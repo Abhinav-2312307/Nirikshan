@@ -1,4 +1,5 @@
-const { getAreas, getReviews, getComplaints, getPlaces } = require("../repositories/dataRepository");
+import { getAreas } from "../repositories/dataRepository";
+import { connectToDatabase } from "../../../lib/mongodb";
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -11,7 +12,7 @@ function scoreToStatus(score) {
   return "Critical";
 }
 
-function computeAreaScore(areaFeature, level, reviews, complaints, places, areaParentMap) {
+export function computeAreaScore(areaFeature, level, reviews, complaints, places, areaParentMap) {
   const areaId = areaFeature.properties.area_id;
   const baseScore = areaFeature.properties.base_score || 50;
 
@@ -38,67 +39,62 @@ function computeAreaScore(areaFeature, level, reviews, complaints, places, areaP
 
   // 1. Citizen Rating Score R_a(t) - (40%)
   const avgRating = areaReviews.length ? (areaReviews.reduce((sum, r) => sum + r.rating, 0) / areaReviews.length) : null;
-  const ratingScore = avgRating !== null ? clamp((avgRating - 1) / 4 * 100, 0, 100) : baseScore;
+  const citizenRatingScore = avgRating !== null ? (avgRating / 5) * 100 : baseScore;
 
-  // 2. Complaint Severity Score S_a(t) - (30%)
-  const unresolvedComplaints = areaComplaints.filter(c => !["Resolved", "Closed"].includes(c.status));
-  let totalSeverityPenalty = 0;
-  unresolvedComplaints.forEach(c => {
-    // Critical = 5, High = 3, Medium = 2, Low = 1
-    let weight = 1;
-    if (c.severity === 5 || c.severity === "Critical") weight = 5;
-    else if (c.severity === 3 || c.severity === "High") weight = 3;
-    else if (c.severity === 2 || c.severity === "Medium") weight = 2;
-    totalSeverityPenalty += weight;
-  });
-  const severityScore = clamp(100 - totalSeverityPenalty * 6, 0, 100);
-
-  // 3. Resolution Efficiency Score E_a(t) - (20%)
-  const totalComplaintsCount = areaComplaints.length;
-  const resolvedCount = areaComplaints.filter(c => ["Resolved", "Closed"].includes(c.status)).length;
-  const disputedCount = areaComplaints.filter(c => c.verification_status === "Disputed").length;
-  const ratio = totalComplaintsCount ? (resolvedCount / totalComplaintsCount) : 1.0;
-  const efficiencyScore = clamp(ratio * 100 - disputedCount * 15, 0, 100);
-
-  // 4. Data Freshness Score F_a(t) - (10%)
-  let latestTime = null;
-  areaReviews.forEach(r => {
-    const t = new Date(r.created_at).getTime();
-    if (!latestTime || t > latestTime) latestTime = t;
-  });
-  areaComplaints.forEach(c => {
-    const t = new Date(c.updated_at || c.created_at).getTime();
-    if (!latestTime || t > latestTime) latestTime = t;
-  });
-
-  let freshnessScore = 50;
-  if (latestTime) {
-    const daysSinceLastEvent = (Date.now() - latestTime) / 86400000;
-    freshnessScore = clamp(Math.round(100 * Math.exp(-daysSinceLastEvent / 30)), 0, 100);
+  // 2. Open Issues Count Score I_a(t) - (35%)
+  const openComplaints = areaComplaints.filter(c => !["Resolved", "Closed"].includes(c.status) && c.status !== "Moderation");
+  const openCount = openComplaints.length;
+  let issueDensityScore = 100;
+  if (openCount > 0) {
+    if (level === "india-states" || level === "states") {
+      issueDensityScore = Math.max(10, 100 - openCount * 0.5);
+    } else if (level === "up-districts" || level === "districts") {
+      issueDensityScore = Math.max(10, 100 - openCount * 2);
+    } else if (level === "kanpur-subdistricts" || level === "subdistricts") {
+      issueDensityScore = Math.max(10, 100 - openCount * 5);
+    } else {
+      // Wards (macro/micro/submicro)
+      issueDensityScore = Math.max(10, 100 - openCount * 12);
+    }
   }
 
-  // Combined score
+  // 3. Issue Resolution Speed Score S_a(t) - (25%)
+  const resolvedComplaints = areaComplaints.filter(c => ["Resolved", "Closed"].includes(c.status));
+  let resolutionSpeedScore = 100;
+  if (resolvedComplaints.length > 0) {
+    const speeds = resolvedComplaints.map(c => {
+      const start = new Date(c.created_at).getTime();
+      const end = new Date(c.updated_at).getTime();
+      return Math.max(1, (end - start) / 86400000); // speed in days
+    });
+    const avgDays = speeds.reduce((sum, s) => sum + s, 0) / speeds.length;
+    resolutionSpeedScore = Math.max(10, 100 - (avgDays * 3));
+  } else if (openCount > 0) {
+    resolutionSpeedScore = 50; // no resolutions but issues exist
+  }
+
+  // Final Composite Score = 0.40 * R_a(t) + 0.35 * I_a(t) + 0.25 * S_a(t)
   const finalScore = Math.round(
-    ratingScore * 0.4 +
-    severityScore * 0.3 +
-    efficiencyScore * 0.2 +
-    freshnessScore * 0.1
+    0.40 * citizenRatingScore +
+    0.35 * issueDensityScore +
+    0.25 * resolutionSpeedScore
   );
 
   return clamp(finalScore, 0, 100);
 }
 
-function listAreas(level) {
+export async function listAreas(level) {
   const dataset = getAreas(level);
-  const places = getPlaces().features;
-  const reviews = getReviews();
-  const complaints = getComplaints();
+  
+  const { db } = await connectToDatabase();
+  const places = await db.collection("places").find({}).toArray();
+  const reviews = await db.collection("reviews").find({}).toArray();
+  const complaints = await db.collection("complaints").find({}).toArray();
 
-  // Build the hierarchical parent-child ancestor lookup map once
   const areaParentMap = new Map();
   
-  const distFeatures = getAreas("up-districts").features || getAreas("districts").features || [];
-  const subdistFeatures = getAreas("kanpur-subdistricts").features || getAreas("subdistricts").features || [];
+  const distFeatures = getAreas("up-districts").features || [];
+  const subdistFeatures = getAreas("kanpur-subdistricts").features || [];
   const macroFeatures = getAreas("macro").features || [];
   const microFeatures = getAreas("micro").features || [];
   const submicroFeatures = getAreas("submicro").features || [];
@@ -134,5 +130,3 @@ function listAreas(level) {
     })
   };
 }
-
-module.exports = { listAreas, computeAreaScore };

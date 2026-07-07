@@ -1,7 +1,7 @@
-const fs = require("fs");
-const path = require("path");
+import fs from "fs";
+import path from "path";
 
-const DATA_DIR = path.join(__dirname, "..", "data");
+const DATA_DIR = path.join(process.cwd(), "src", "server", "data");
 
 function readJson(fileName, fallback) {
   try {
@@ -68,7 +68,7 @@ function saveComplaints(value) {
   writeJson("complaints.json", value);
 }
 
-module.exports = {
+export {
   getAreas,
   getAuthorities,
   saveAuthorities,
