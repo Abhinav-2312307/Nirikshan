@@ -1,0 +1,182 @@
+[
+  {
+    "complaint_id": "cmp-001",
+    "place_id": "PL_ROAD_001",
+    "place_name": "Naubasta Main Road",
+    "place_type": "road",
+    "area_id": "WARD_88_MICRO_2_SUB_2",
+    "authority_id": "KNN",
+    "authority": "Kanpur Nagar Nigam",
+    "department": "Roads",
+    "issue_type": "Pothole",
+    "severity": 3,
+    "description": "Deep pothole before chowk turn.",
+    "latitude": 26.4194,
+    "longitude": 80.3054,
+    "status": "Assigned",
+    "created_at": "2026-02-18T08:20:00.000Z",
+    "updated_at": "2026-02-20T06:15:00.000Z"
+  },
+  {
+    "complaint_id": "cmp-002",
+    "place_id": "PL_HOME_001",
+    "place_name": "Residential Cluster A-17",
+    "place_type": "home",
+    "area_id": "WARD_36_MICRO_2_SUB_1",
+    "authority_id": "JAL",
+    "authority": "Jal Kal Vibhag",
+    "department": "Water Operations",
+    "issue_type": "Water",
+    "severity": 2,
+    "description": "Drain overflow near lane entrance.",
+    "latitude": 26.4116,
+    "longitude": 80.2949,
+    "status": "In Progress",
+    "created_at": "2026-02-19T07:30:00.000Z",
+    "updated_at": "2026-02-20T12:00:00.000Z"
+  },
+  {
+    "complaint_id": "cmp-003",
+    "place_id": "PL_PARK_002",
+    "place_name": "Hanspuram Children Park",
+    "place_type": "park",
+    "area_id": "WARD_58_MICRO_2_SUB_2",
+    "authority_id": "KNN",
+    "authority": "Kanpur Nagar Nigam",
+    "department": "Sanitation",
+    "issue_type": "Garbage",
+    "severity": 1,
+    "description": "Bins are not cleared daily.",
+    "latitude": 26.4248,
+    "longitude": 80.3163,
+    "status": "Resolved",
+    "created_at": "2026-02-17T16:10:00.000Z",
+    "updated_at": "2026-02-20T09:14:00.000Z"
+  },
+  {
+    "complaint_id": "e3f00a3a-076e-4e14-b67e-6a9d2ef47c2e",
+    "place_id": "PL_ROAD_001",
+    "place_name": "Naubasta Main Road",
+    "place_type": "road",
+    "area_id": "WARD_88_MICRO_2_SUB_2",
+    "authority_id": "KNN",
+    "authority": "Kanpur Nagar Nigam",
+    "department": "Roads",
+    "issue_type": "Pothole",
+    "severity": 3,
+    "description": "Severe potholes hindering traffic near the intersection.",
+    "latitude": 26.4194,
+    "longitude": 80.3054,
+    "status": "Closed",
+    "disputed_jurisdiction": true,
+    "assigned_authorities": [
+      {
+        "authority_id": "KNN",
+        "name": "Kanpur Nagar Nigam",
+        "department": "Roads"
+      },
+      {
+        "authority_id": "KDA",
+        "name": "Kanpur Development Authority",
+        "department": "Road Projects"
+      }
+    ],
+    "duplicate_of": null,
+    "is_duplicate": false,
+    "verification_status": "Confirmed",
+    "reopened_count": 1,
+    "user_trust_score": 80,
+    "ai_validation": {
+      "profanity_flagged": false,
+      "image_relevant": true,
+      "face_blurred": true,
+      "exif_stripped": true
+    },
+    "created_at": "2026-07-06T15:51:02.501Z",
+    "updated_at": "2026-07-06T15:51:02.513Z"
+  },
+  {
+    "complaint_id": "019cc084-edb0-4eed-9904-0661d74758a4",
+    "place_id": "PL_ROAD_001",
+    "place_name": "Naubasta Main Road",
+    "place_type": "road",
+    "area_id": "WARD_88_MICRO_2_SUB_2",
+    "authority_id": "KNN",
+    "authority": "Kanpur Nagar Nigam",
+    "department": "Roads",
+    "issue_type": "Pothole",
+    "severity": 3,
+    "description": "Another duplicate pothole report right next to it.",
+    "latitude": 26.4194,
+    "longitude": 80.3054,
+    "status": "Submitted",
+    "disputed_jurisdiction": true,
+    "assigned_authorities": [
+      {
+        "authority_id": "KNN",
+        "name": "Kanpur Nagar Nigam",
+        "department": "Roads"
+      },
+      {
+        "authority_id": "KDA",
+        "name": "Kanpur Development Authority",
+        "department": "Road Projects"
+      }
+    ],
+    "duplicate_of": "e3f00a3a-076e-4e14-b67e-6a9d2ef47c2e",
+    "is_duplicate": true,
+    "verification_status": "Pending",
+    "reopened_count": 0,
+    "user_trust_score": 80,
+    "ai_validation": {
+      "profanity_flagged": false,
+      "image_relevant": true,
+      "face_blurred": true,
+      "exif_stripped": true
+    },
+    "created_at": "2026-07-06T15:51:02.503Z",
+    "updated_at": "2026-07-06T15:51:02.503Z"
+  },
+  {
+    "complaint_id": "6cde0aa2-4207-4a4a-888f-e70bda660354",
+    "place_id": "PL_ROAD_001",
+    "place_name": "Naubasta Main Road",
+    "place_type": "road",
+    "area_id": "WARD_88_MICRO_2_SUB_2",
+    "authority_id": "KNN",
+    "authority": "Kanpur Nagar Nigam",
+    "department": "Roads",
+    "issue_type": "Pothole",
+    "severity": 3,
+    "description": "This is a spam report with junk content.",
+    "latitude": 26.4194,
+    "longitude": 80.3054,
+    "status": "Moderation",
+    "disputed_jurisdiction": true,
+    "assigned_authorities": [
+      {
+        "authority_id": "KNN",
+        "name": "Kanpur Nagar Nigam",
+        "department": "Roads"
+      },
+      {
+        "authority_id": "KDA",
+        "name": "Kanpur Development Authority",
+        "department": "Road Projects"
+      }
+    ],
+    "duplicate_of": "e3f00a3a-076e-4e14-b67e-6a9d2ef47c2e",
+    "is_duplicate": true,
+    "verification_status": "Pending",
+    "reopened_count": 0,
+    "user_trust_score": 20,
+    "ai_validation": {
+      "profanity_flagged": true,
+      "image_relevant": true,
+      "face_blurred": true,
+      "exif_stripped": true
+    },
+    "created_at": "2026-07-06T15:51:02.505Z",
+    "updated_at": "2026-07-06T15:51:02.505Z"
+  }
+]

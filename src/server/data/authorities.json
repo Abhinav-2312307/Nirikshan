@@ -1,0 +1,51 @@
+[
+  {
+    "authority_id": "KNN",
+    "name": "Kanpur Nagar Nigam",
+    "departments": {
+      "Pothole": "Roads",
+      "Streetlight": "Electrical",
+      "Garbage": "Sanitation",
+      "Safety": "Civic Safety",
+      "Water": "Water Supply",
+      "Sewer": "Sewer Maintenance",
+      "Encroachment": "Enforcement"
+    },
+    "metrics": {
+      "score": 65,
+      "total_resolved": 1,
+      "total_disputed": 1
+    }
+  },
+  {
+    "authority_id": "KDA",
+    "name": "Kanpur Development Authority",
+    "departments": {
+      "Pothole": "Road Projects",
+      "Streetlight": "Urban Infra",
+      "Garbage": "Urban Services",
+      "Safety": "Urban Safety",
+      "Water": "Drainage",
+      "Sewer": "Drain Planning",
+      "Encroachment": "Planning"
+    },
+    "metrics": {
+      "score": 65,
+      "total_resolved": 1,
+      "total_disputed": 1
+    }
+  },
+  {
+    "authority_id": "JAL",
+    "name": "Jal Kal Vibhag",
+    "departments": {
+      "Pothole": "Restoration",
+      "Streetlight": "Field Support",
+      "Garbage": "Coordination",
+      "Safety": "Response",
+      "Water": "Water Operations",
+      "Sewer": "Sewer Operations",
+      "Encroachment": "Inspection"
+    }
+  }
+]

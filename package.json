@@ -1,0 +1,14 @@
+{
+  "name": "civic-map-project",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Naubasta civic issue reporting and area quality mapping MVP",
+  "main": "src/server/server.js",
+  "scripts": {
+    "start": "node src/server/server.js",
+    "dev": "node --watch src/server/server.js"
+  },
+  "dependencies": {
+    "express": "^4.22.1"
+  }
+}

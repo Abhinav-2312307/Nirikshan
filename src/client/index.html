@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CivicMap Unified Platform</title>
+  
+  <!-- Premium Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+  <!-- Top Navigation Bar -->
+  <header class="navbar">
+    <div class="brand">
+      <div class="brand-dot"></div>
+      <div>
+        <h1>CivicMap Ledger</h1>
+        <p>Hierarchical Governance & AQI Mapping</p>
+      </div>
+    </div>
+
+    <div class="search-wrap">
+      <input id="search-input" type="text" placeholder="Search road, park, home, shop, landmark..." autocomplete="off" />
+      <ul id="search-results" class="search-results"></ul>
+    </div>
+
+    <nav class="nav-links">
+      <button class="nav-btn active" id="tab-map">Map Explorer</button>
+      <button class="nav-btn" id="tab-citizen">Citizen Dashboard</button>
+      <button class="nav-btn" id="tab-governance">Governance Console</button>
+    </nav>
+  </header>
+
+  <!-- Main Platform Layout -->
+  <main class="layout">
+    
+    <!-- Map Canvas Panel -->
+    <section class="map-panel">
+      <!-- Floating Layer / Mode Selector Overlay -->
+      <div class="map-mode-control">
+        <h4>Map Visual Modes</h4>
+        <div class="mode-buttons">
+          <button class="mode-btn active" id="mode-explore">🛣️ Explore & Rate</button>
+          <button class="mode-btn" id="mode-aqi">📊 Civic AQI Layers</button>
+          <button class="mode-btn" id="mode-heatmap">🔥 Complaint Heatmap</button>
+        </div>
+      </div>
+
+      <!-- Floating Stats Bar -->
+      <div class="stats-row">
+        <article><strong id="metric-total">0</strong><span>Total Ledger</span></article>
+        <article><strong id="metric-pending">0</strong><span>Pending</span></article>
+        <article><strong id="metric-resolved">0</strong><span>Resolved</span></article>
+        <article><strong id="metric-high">0</strong><span>High/Critical</span></article>
+      </div>
+
+      <!-- Floating Legend Card -->
+      <div class="legend-card" id="map-legend">
+        <h3>Area Quality Index (AQI)</h3>
+        <p id="zoom-level-text">Active Level: State Boundaries</p>
+        <div class="legend-scale">
+          <div class="scale-item"><span class="swatch excellent"></span><strong>81-100</strong> Well-maintained</div>
+          <div class="scale-item"><span class="swatch good"></span><strong>61-80</strong> Acceptable</div>
+          <div class="scale-item"><span class="swatch moderate"></span><strong>31-60</strong> Poor</div>
+          <div class="scale-item"><span class="swatch critical"></span><strong>0-30</strong> Critical</div>
+        </div>
+      </div>
+
+      <div id="map"></div>
+    </section>
+
+    <!-- Side Interactive Panel (Dynamic Views) -->
+    <aside class="sheet">
+
+      <!-- ================= VIEW 1: MAP PLACES PANEL ================= -->
+      <div id="view-map" class="panel-view active">
+        <div class="card place-card" id="place-summary-card">
+          <p id="place-type" class="place-type">Select a place</p>
+          <h2 id="place-name">No Location Selected</h2>
+          <p id="place-address" class="place-address">Click on any road, park, landmark, or pin a custom point on the map to rate quality or submit complaints.</p>
+
+          <div class="metric-grid">
+            <div><label>Quality Rating</label><strong id="place-rating">-</strong></div>
+            <div><label>Reviews</label><strong id="place-reviews">-</strong></div>
+            <div><label>Complaints</label><strong id="place-complaints">-</strong></div>
+            <div><label>Pending</label><strong id="place-pending">-</strong></div>
+          </div>
+          <p id="place-jurisdiction" class="place-jurisdiction">Jurisdiction: Not matched</p>
+        </div>
+
+        <div class="card form-card hide" id="rating-submission-card">
+          <h3>Rate Quality & Review</h3>
+          <form id="review-form">
+            <div class="form-group">
+              <label>Quality Grade
+                <select name="rating" required>
+                  <option value="5">⭐⭐⭐⭐⭐ Excellent (Well-maintained)</option>
+                  <option value="4">⭐⭐⭐⭐ Good (Acceptable)</option>
+                  <option value="3">⭐⭐⭐ Moderate</option>
+                  <option value="2">⭐⭐ Poor</option>
+                  <option value="1">⭐ Critical (Damaged/Broken)</option>
+                </select>
+              </label>
+            </div>
+            <div class="form-group">
+              <label>Feedback Comment
+                <textarea name="comment" rows="3" maxlength="260" placeholder="E.g. Cleanliness, water logging, lighting, road condition..." required></textarea>
+              </label>
+            </div>
+            <button type="submit" class="btn-primary">Post Review</button>
+          </form>
+        </div>
+
+        <div class="card form-card hide" id="complaint-submission-card">
+          <h3>Submit New Civic Complaint</h3>
+          <div class="alert-info">
+            🛡️ GPS and Timestamp attached. EXIF metadata will be stripped and faces automatically blurred.
+          </div>
+          
+          <form id="complaint-form">
+            <div class="form-group">
+              <label>Issue Classification
+                <select name="issue_type" id="complaint-issue-type" required>
+                  <option value="Pothole">Road / Pothole (KNN & KDA)</option>
+                  <option value="Streetlight">Streetlight Failure (KNN & KDA)</option>
+                  <option value="Water">Water Supply Defect (Jal Kal & KNN)</option>
+                  <option value="Sewer">Drainage / Sewer Overflow (Jal Kal & KNN)</option>
+                  <option value="Garbage">Sanitation / Garbage Dump (KNN)</option>
+                  <option value="Safety">Public Safety Hazard (KNN)</option>
+                  <option value="Encroachment">Public Space Encroachment (KDA)</option>
+                </select>
+              </label>
+            </div>
+            
+            <div class="form-group">
+              <label>Severity Level
+                <select name="severity" required>
+                  <option value="1">Low - Minor issue, needs repair</option>
+                  <option value="2">Medium - Obstructive, needs attention</option>
+                  <option value="3">High - Safety concern or disruption</option>
+                  <option value="5">Critical - Severe hazard / complete failure</option>
+                </select>
+              </label>
+            </div>
+            
+            <div class="form-group">
+              <label>Description of Issue
+                <textarea name="description" rows="3" maxlength="300" placeholder="Describe the problem and nearest landmarks..." required></textarea>
+              </label>
+            </div>
+
+            <!-- Simulated Image upload (Face Blur Demo) -->
+            <div class="form-group">
+              <label>Photographic Evidence
+                <div class="photo-upload-simulator">
+                  <div class="uploaded-image-preview hide" id="image-preview-container">
+                    <img src="" id="image-preview" alt="Civic Issue Preview" />
+                    <span class="preview-badge">🛡️ Face Blurred</span>
+                  </div>
+                  <button type="button" id="btn-upload-photo" class="btn-secondary">📸 Select Issue Photo</button>
+                </div>
+              </label>
+            </div>
+
+            <button type="submit" class="btn-primary">File Complaint</button>
+          </form>
+        </div>
+
+        <div class="card list-card hide" id="place-reviews-list-card">
+          <h3>Recent Location Reviews</h3>
+          <ul id="review-list" class="stack-list"></ul>
+        </div>
+
+        <div class="card list-card hide" id="place-complaints-list-card">
+          <h3>Location Complaints Ledger</h3>
+          <ul id="complaint-list" class="stack-list"></ul>
+        </div>
+      </div>
+
+      <!-- ================= VIEW 2: CITIZEN DASHBOARD ================= -->
+      <div id="view-citizen" class="panel-view">
+        <div class="card profile-card">
+          <div class="profile-header">
+            <div class="avatar">👤</div>
+            <div>
+              <h3>Citizen Account</h3>
+              <p>Demo User Profile</p>
+            </div>
+          </div>
+          
+          <div class="trust-score-widget">
+            <div class="score-header">
+              <span>Identity Verification Status</span>
+              <strong id="citizen-trust-score">Trust Score: 50/100</strong>
+            </div>
+            
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" id="trust-progress" style="width: 50%;"></div>
+            </div>
+
+            <div class="trust-status-flags">
+              <span class="status-chip unverified" id="badge-otp">📱 OTP Unverified</span>
+              <span class="status-chip unverified" id="badge-aadhaar">🆔 Aadhaar Unverified</span>
+            </div>
+
+            <div class="verification-actions">
+              <button class="btn-verify" id="btn-verify-otp">Verify Mobile OTP (+10)</button>
+              <button class="btn-verify" id="btn-verify-aadhaar">Verify Aadhaar ID (+30)</button>
+            </div>
+            <p class="trust-caption">High trust score (>60) bypasses the AI spam moderation queue.</p>
+          </div>
+        </div>
+
+        <div class="card my-reports-card">
+          <h3>My Filed Complaints & Verification Loops</h3>
+          <p class="sec-desc">Once resolved, you have a 7-day window to Confirm or Dispute the resolution.</p>
+          <ul id="my-reports-list" class="stack-list"></ul>
+        </div>
+      </div>
+
+      <!-- ================= VIEW 3: GOVERNANCE & LEDGER ================= -->
+      <div id="view-governance" class="panel-view">
+        <div class="card role-card">
+          <h3>Jurisdiction Access Control</h3>
+          <label>Select Authority Session
+            <select id="role-selector">
+              <option value="citizen">👤 Public View (Leaderboards & Analytics)</option>
+              <option value="KNN">🏢 Kanpur Nagar Nigam (Officer Console)</option>
+              <option value="KDA">📐 Kanpur Development Authority (Officer Console)</option>
+              <option value="JAL">🚰 Jal Kal Vibhag (Officer Console)</option>
+            </select>
+          </label>
+        </div>
+
+        <!-- Leaderboard (Visible to Public & Officers) -->
+        <div class="card leaderboard-card">
+          <h3>Authority Resolution Leaderboard</h3>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Authority</th>
+                <th>Performance</th>
+                <th>Resolved</th>
+                <th>Disputes</th>
+                <th>Open</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboard-body">
+              <!-- Dynamically rendered -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Ward AQI Rankings -->
+        <div class="card ranking-card">
+          <h3>Ward AQI Performance Rankings</h3>
+          <ul id="ward-ranking-list" class="ranking-list"></ul>
+        </div>
+
+        <!-- Officer Workspace (Only visible when KNN, KDA, JAL selected) -->
+        <div class="card officer-workspace hide" id="officer-panel">
+          <div class="workspace-header">
+            <h3 id="officer-workspace-title">Kanpur Nagar Nigam Workspace</h3>
+            <span class="badge-active-jurisdiction">Admin Jurisdiction Active</span>
+          </div>
+          
+          <div class="workspace-desc alert-info">
+            🚫 Complaints are permanently recorded in the civic ledger and cannot be deleted. All state transitions are logged.
+          </div>
+
+          <div class="complaints-filter-group">
+            <label><input type="checkbox" id="chk-moderation-queue" /> View Pending AI Moderation Queue</label>
+          </div>
+
+          <div class="officer-complaints-box">
+            <h4>Assigned Civic Complaints</h4>
+            <ul id="officer-complaints-list" class="stack-list"></ul>
+          </div>
+        </div>
+
+        <!-- Civic Data Export (CSV) -->
+        <div class="card export-card">
+          <h3>Civic Data Analytics Portal</h3>
+          <p>Export completed and open logs for public media inspection and analytics.</p>
+          <button id="btn-export-csv" class="btn-secondary">📥 Export Immutable Civic Ledger (CSV)</button>
+        </div>
+      </div>
+
+    </aside>
+  </main>
+
+  <!-- Leaflet & Clustering Script files -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,243 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "place_id": "PL_ROAD_001",
+        "name": "Naubasta Main Road",
+        "type": "road",
+        "area_id": "WARD_88_MICRO_1_SUB_2",
+        "address": "Naubasta Main Rd, Kanpur"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            80.3016,
+            26.4172
+          ],
+          [
+            80.3048,
+            26.4192
+          ],
+          [
+            80.3089,
+            26.4217
+          ],
+          [
+            80.3124,
+            26.4238
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "place_id": "PL_ROAD_002",
+        "name": "Ratanpur Link Road",
+        "type": "road",
+        "area_id": "WARD_36_MICRO_2_SUB_2",
+        "address": "Ratanpur Link, Naubasta"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            80.3049,
+            26.4058
+          ],
+          [
+            80.3073,
+            26.4081
+          ],
+          [
+            80.3112,
+            26.4101
+          ],
+          [
+            80.3152,
+            26.4091
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "place_id": "PL_PARK_001",
+        "name": "Machhariya Community Park",
+        "type": "park",
+        "area_id": "WARD_36_MICRO_2_SUB_1",
+        "address": "Machhariya, Naubasta"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              80.2897,
+              26.4269
+            ],
+            [
+              80.2919,
+              26.4279
+            ],
+            [
+              80.2924,
+              26.4258
+            ],
+            [
+              80.2904,
+              26.4251
+            ],
+            [
+              80.2897,
+              26.4269
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "place_id": "PL_PARK_002",
+        "name": "Hanspuram Children Park",
+        "type": "park",
+        "area_id": "SUBDIST_KANPUR_CITY",
+        "address": "Hanspuram Fringe"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              80.3152,
+              26.4258
+            ],
+            [
+              80.3175,
+              26.4259
+            ],
+            [
+              80.3176,
+              26.4242
+            ],
+            [
+              80.3155,
+              26.4239
+            ],
+            [
+              80.3152,
+              26.4258
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "place_id": "PL_HOME_001",
+        "name": "Residential Cluster A-17",
+        "type": "home",
+        "area_id": "WARD_36_MICRO_2_SUB_1",
+        "address": "South Naubasta Lane 3"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.2947,
+          26.4115
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "place_id": "PL_HOME_002",
+        "name": "Residential Cluster C-04",
+        "type": "home",
+        "area_id": "WARD_58_MICRO_1_SUB_1",
+        "address": "Ratanpur Corridor"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.3137,
+          26.4076
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "place_id": "PL_SHOP_001",
+        "name": "Naubasta General Store",
+        "type": "shop",
+        "area_id": "WARD_88_MICRO_1_SUB_2",
+        "address": "Naubasta Chowk"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.3024,
+          26.4168
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "place_id": "PL_SHOP_002",
+        "name": "Galla Mandi Hardware",
+        "type": "shop",
+        "area_id": "WARD_83_MICRO_2_SUB_2",
+        "address": "Galla Mandi Belt"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.3094,
+          26.4221
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "place_id": "PL_STOP_001",
+        "name": "Naubasta Bus Stop",
+        "type": "public-place",
+        "area_id": "WARD_88_MICRO_1_SUB_1",
+        "address": "Naubasta Central"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.3002,
+          26.4207
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "place_id": "PL_SCHOOL_001",
+        "name": "Hanspuram Public School",
+        "type": "public-place",
+        "area_id": "WARD_58_MICRO_2_SUB_1",
+        "address": "Hanspuram Fringe"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.3121,
+          26.4261
+        ]
+      }
+    }
+  ]
+}
