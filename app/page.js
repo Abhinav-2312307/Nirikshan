@@ -99,9 +99,6 @@ export default function Home() {
           map.addLayer(markerCluster);
           clusterLayerRef.current = markerCluster;
 
-          const heatLayer = L.heatLayer([], { radius: 26, blur: 22, maxZoom: 18 }).addTo(map);
-          heatLayerRef.current = heatLayer;
-
           map.on("zoomend", handleZoomEnd);
           map.on("click", async (e) => {
             setSelectedLatlng(e.latlng);
@@ -285,7 +282,6 @@ export default function Home() {
     const L = LRef.current;
     const map = mapInstance.current;
     const markerCluster = clusterLayerRef.current;
-    const heatLayer = heatLayerRef.current;
     if (!L || !map) return;
 
     const list = await api("/api/complaints?include_moderation=true");
@@ -332,21 +328,25 @@ export default function Home() {
         markerCluster.addLayer(marker);
       });
     } else if (activeMode === "heatmap") {
+      if (!heatLayerRef.current) {
+        heatLayerRef.current = L.heatLayer([], { radius: 26, blur: 22, maxZoom: 18 }).addTo(map);
+      }
       const heatPoints = list
         .filter(c => c.status !== "Closed" && c.status !== "Moderation")
         .map(c => [c.latitude, c.longitude, c.severity / 3]);
-      heatLayer.setLatLngs(heatPoints);
+      heatLayerRef.current.setLatLngs(heatPoints);
     }
   };
 
   const updateMapVisuals = () => {
     const map = mapInstance.current;
-    const heatLayer = heatLayerRef.current;
     const markerCluster = clusterLayerRef.current;
     if (!map) return;
 
     if (aqiLayerRef.current) map.removeLayer(aqiLayerRef.current);
-    if (map.hasLayer(heatLayer)) map.removeLayer(heatLayer);
+    if (heatLayerRef.current && map.hasLayer(heatLayerRef.current)) {
+      map.removeLayer(heatLayerRef.current);
+    }
     if (placesLayerRef.current) map.removeLayer(placesLayerRef.current);
     markerCluster.clearLayers();
 
@@ -356,8 +356,12 @@ export default function Home() {
     } else if (activeMode === "aqi") {
       refreshAqiLayer();
     } else if (activeMode === "heatmap") {
+      const L = LRef.current;
+      if (L && !heatLayerRef.current) {
+        heatLayerRef.current = L.heatLayer([], { radius: 26, blur: 22, maxZoom: 18 });
+      }
       refreshComplaints();
-      heatLayer.addTo(map);
+      if (heatLayerRef.current) heatLayerRef.current.addTo(map);
     }
   };
 
