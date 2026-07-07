@@ -101,6 +101,12 @@ export default function Dashboard() {
       loadPlacesLayer();
       refreshMetrics();
       refreshComplaints();
+
+      setTimeout(() => {
+        if (mapInstance.current) {
+          mapInstance.current.invalidateSize();
+        }
+      }, 250);
     }
 
     return () => {
