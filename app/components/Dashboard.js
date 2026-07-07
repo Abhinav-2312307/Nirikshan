@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import L from "leaflet";
-import "leaflet.markercluster";
-import "leaflet.heat";
 
 // Mapping icons for different categories
 const ISSUE_ICONS = {
@@ -35,6 +33,16 @@ export default function Dashboard() {
   const [authorityRole, setAuthorityRole] = useState("citizen"); // "citizen" | "KNN" | "KDA" | "JAL"
   const [viewModerationQueue, setViewModerationQueue] = useState(false);
 
+  // Keep refs of active mode and active tab to prevent stale closures in Leaflet events
+  const activeTabRef = useRef(activeTab);
+  const activeModeRef = useRef(activeMode);
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+  useEffect(() => {
+    activeModeRef.current = activeMode;
+  }, [activeMode]);
+
   // Places and metrics
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [selectedLatlng, setSelectedLatlng] = useState(null);
@@ -65,6 +73,13 @@ export default function Dashboard() {
   const selectionMarkerRef = useRef(null);
 
   useEffect(() => {
+    // Attach L to window so leaflet plugins can find it
+    if (typeof window !== "undefined") {
+      window.L = L;
+      require("leaflet.markercluster");
+      require("leaflet.heat");
+    }
+
     // Fix Leaflet marker icon paths
     delete L.Icon.Default.prototype._getIconUrl;
     L.Icon.Default.mergeOptions({
@@ -102,15 +117,35 @@ export default function Dashboard() {
       refreshMetrics();
       refreshComplaints();
 
-      setTimeout(() => {
-        if (mapInstance.current) {
-          mapInstance.current.invalidateSize();
-        }
-      }, 250);
+      // Use ResizeObserver to ensure Leaflet recalculates size when parent container size is resolved (e.g. CSS Grid resolution)
+      const resizeObserver = new ResizeObserver(() => {
+        map.invalidateSize();
+        requestAnimationFrame(() => {
+          map.invalidateSize();
+        });
+      });
+      if (mapRef.current) {
+        resizeObserver.observe(mapRef.current);
+      }
+      map._resizeObserver = resizeObserver;
+
+      // Force recalculation at multiple delay intervals once Leaflet is ready to handle Next.js hydration styling delays
+      map.whenReady(() => {
+        [50, 150, 300, 600, 1000].forEach(delay => {
+          setTimeout(() => {
+            if (mapInstance.current) {
+              mapInstance.current.invalidateSize();
+            }
+          }, delay);
+        });
+      });
     }
 
     return () => {
       if (mapInstance.current) {
+        if (mapInstance.current._resizeObserver) {
+          mapInstance.current._resizeObserver.disconnect();
+        }
         mapInstance.current.remove();
         mapInstance.current = null;
       }
@@ -121,8 +156,24 @@ export default function Dashboard() {
   useEffect(() => {
     if (mapInstance.current) {
       updateMapVisuals();
+      requestAnimationFrame(() => {
+        if (mapInstance.current) mapInstance.current.invalidateSize();
+      });
     }
   }, [activeMode]);
+
+  // Update map when tab changes
+  useEffect(() => {
+    if (mapInstance.current) {
+      mapInstance.current.invalidateSize();
+      requestAnimationFrame(() => {
+        if (mapInstance.current) mapInstance.current.invalidateSize();
+      });
+      setTimeout(() => {
+        if (mapInstance.current) mapInstance.current.invalidateSize();
+      }, 100);
+    }
+  }, [activeTab]);
 
   // Load lists on tab switches
   useEffect(() => {
@@ -234,18 +285,28 @@ export default function Dashboard() {
     const activeMap = mapInstance.current;
     if (!activeMap) return;
 
-    if (aqiLayerRef.current && activeMap.hasLayer(aqiLayerRef.current)) {
-      activeMap.removeLayer(aqiLayerRef.current);
+    // Capture the old layer to fade it out
+    const oldLayer = aqiLayerRef.current;
+    if (oldLayer && activeMap.hasLayer(oldLayer)) {
+      oldLayer.eachLayer((childLayer) => {
+        if (typeof childLayer.getElement === "function") {
+          const el = childLayer.getElement();
+          if (el) el.classList.remove("visible");
+        }
+      });
+      setTimeout(() => {
+        if (activeMap.hasLayer(oldLayer)) {
+          activeMap.removeLayer(oldLayer);
+        }
+      }, 400); // Remove from map after fade-out transition completes
     }
 
     const layer = L.geoJSON(data, {
       style: (feature) => ({
         fillColor: scoreToColor(feature.properties.area_score),
-        fillOpacity: 0.65,
-        opacity: 0.8,
         color: "#ffffff",
         weight: 1.5,
-        className: "aqi-region"
+        className: "aqi-region" // Starts transparent in CSS, transitions to full opacity
       }),
       onEachFeature: (feature, layer) => {
         layer.bindTooltip(`<strong>${feature.properties.name}</strong><br>AQI Score: ${feature.properties.area_score} (${feature.properties.area_status || "Unknown"})`, {
@@ -266,13 +327,25 @@ export default function Dashboard() {
     });
 
     aqiLayerRef.current = layer;
-    if (activeMode === "aqi") {
+
+    if (activeModeRef.current === "aqi") {
       layer.addTo(activeMap);
+      // Wait for layout/paint and trigger smooth fade-in
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          layer.eachLayer((childLayer) => {
+            if (typeof childLayer.getElement === "function") {
+              const el = childLayer.getElement();
+              if (el) el.classList.add("visible");
+            }
+          });
+        }, 50);
+      });
     }
   };
 
   const handleZoomEnd = async () => {
-    if (activeMode !== "aqi") return;
+    if (activeModeRef.current !== "aqi") return;
     await refreshAqiLayer();
   };
 

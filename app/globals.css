@@ -204,6 +204,7 @@ body {
   grid-template-columns: 1fr 440px;
   gap: 16px;
   padding: 16px;
+  width: 100%;
   max-width: 1680px;
   margin: 0 auto;
 }
@@ -218,9 +219,13 @@ body {
 }
 
 #map {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
   background: #0f172a;
+  z-index: 1;
 }
 
 /* Map Badges & Overlay Controls */
@@ -928,6 +933,18 @@ textarea {
 .marker-cluster-small div { background-color: rgba(6, 182, 212, 0.6) !important; color: #fff !important; }
 .marker-cluster-medium { background-color: rgba(59, 130, 246, 0.2) !important; }
 .marker-cluster-medium div { background-color: rgba(59, 130, 246, 0.6) !important; color: #fff !important; }
+
+/* AQI GeoJSON Layer Transitions */
+.aqi-region {
+  opacity: 0 !important;
+  fill-opacity: 0 !important;
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), fill-opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), stroke-width 0.2s ease !important;
+}
+
+.aqi-region.visible {
+  opacity: 0.8 !important;
+  fill-opacity: 0.65 !important;
+}
 
 /* Utilities */
 .hide {
