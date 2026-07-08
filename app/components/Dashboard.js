@@ -26,17 +26,17 @@ const PLACE_ICONS = {
 function getPlaceStyle(feature, styleState = "base") {
   const type = feature.properties.type;
   if (styleState === "selected") {
-    if (type === "road") return { color: "#f43f5e", weight: 9, opacity: 1.0, lineCap: "round" };
-    if (type === "park") return { color: "#f43f5e", weight: 3, fillColor: "#fda4af", fillOpacity: 0.55 };
-    return { color: "#f43f5e", weight: 4, fillColor: "#fda4af", fillOpacity: 0.4 };
+    if (type === "road") return { color: "#ec4899", weight: 9, opacity: 1.0, lineCap: "round" };
+    if (type === "park") return { color: "#ec4899", weight: 3, fillColor: "#f472b6", fillOpacity: 0.55 };
+    return { color: "#ec4899", weight: 4, fillColor: "#f472b6", fillOpacity: 0.4 };
   }
   if (styleState === "hover") {
-    if (type === "road") return { color: "#22d3ee", weight: 8, opacity: 1.0, lineCap: "round" };
-    if (type === "park") return { color: "#34d399", weight: 2.5, fillColor: "#6ee7b7", fillOpacity: 0.45 };
+    if (type === "road") return { color: "#c084fc", weight: 8, opacity: 1.0, lineCap: "round" };
+    if (type === "park") return { color: "#a78bfa", weight: 2.5, fillColor: "#c084fc", fillOpacity: 0.45 };
     return { color: "#cbd5e1", weight: 3.5, fillColor: "#e2e8f0", fillOpacity: 0.35 };
   }
   // Default base style
-  if (type === "road") return { color: "#67e8f9", weight: 5, opacity: 0.8, lineCap: "round" };
+  if (type === "road") return { color: "#818cf8", weight: 5, opacity: 0.8, lineCap: "round" };
   if (type === "park") return { color: "#10b981", weight: 1.5, fillColor: "#34d399", fillOpacity: 0.35 };
   return { color: "#94a3b8", weight: 2, fillColor: "#cbd5e1", fillOpacity: 0.2 };
 }
@@ -784,7 +784,7 @@ export default function Dashboard() {
         </nav>
       </header>
 
-      <main className="layout">
+      <main className={`layout tab-${activeTab}`}>
         <section className="map-panel">
           <div className="map-mode-control">
             <h4>Map Visual Modes</h4>
