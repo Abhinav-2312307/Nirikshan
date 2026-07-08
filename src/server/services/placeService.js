@@ -164,6 +164,10 @@ export async function resolvePlace(lat, lng) {
     };
   }
 
+  if (winner) {
+    const area = findAreaForPoint(lat, lng);
+    winner.properties.area_id = area?.properties?.area_id || null;
+  }
   return { place: winner, distance_meters: Math.round(winnerDist), is_virtual: false };
 }
 

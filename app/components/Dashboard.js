@@ -23,6 +23,24 @@ const PLACE_ICONS = {
   location: "📌"
 };
 
+function getPlaceStyle(feature, styleState = "base") {
+  const type = feature.properties.type;
+  if (styleState === "selected") {
+    if (type === "road") return { color: "#f43f5e", weight: 9, opacity: 1.0, lineCap: "round" };
+    if (type === "park") return { color: "#f43f5e", weight: 3, fillColor: "#fda4af", fillOpacity: 0.55 };
+    return { color: "#f43f5e", weight: 4, fillColor: "#fda4af", fillOpacity: 0.4 };
+  }
+  if (styleState === "hover") {
+    if (type === "road") return { color: "#22d3ee", weight: 8, opacity: 1.0, lineCap: "round" };
+    if (type === "park") return { color: "#34d399", weight: 2.5, fillColor: "#6ee7b7", fillOpacity: 0.45 };
+    return { color: "#cbd5e1", weight: 3.5, fillColor: "#e2e8f0", fillOpacity: 0.35 };
+  }
+  // Default base style
+  if (type === "road") return { color: "#67e8f9", weight: 5, opacity: 0.8, lineCap: "round" };
+  if (type === "park") return { color: "#10b981", weight: 1.5, fillColor: "#34d399", fillOpacity: 0.35 };
+  return { color: "#94a3b8", weight: 2, fillColor: "#cbd5e1", fillOpacity: 0.2 };
+}
+
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("map"); // "map" | "citizen" | "governance"
   const [activeMode, setActiveMode] = useState("explore"); // "explore" | "aqi" | "heatmap"
@@ -32,6 +50,7 @@ export default function Dashboard() {
   const [userId] = useState("demo-citizen-101");
   const [authorityRole, setAuthorityRole] = useState("citizen"); // "citizen" | "KNN" | "KDA" | "JAL"
   const [viewModerationQueue, setViewModerationQueue] = useState(false);
+  const [mapTheme, setMapTheme] = useState("dark"); // "dark" | "street"
 
   // Keep refs of active mode and active tab to prevent stale closures in Leaflet events
   const activeTabRef = useRef(activeTab);
@@ -71,6 +90,8 @@ export default function Dashboard() {
   const clusterLayerRef = useRef(null);
   const heatLayerRef = useRef(null);
   const selectionMarkerRef = useRef(null);
+  const selectedLayerRef = useRef(null);
+  const tileLayerRef = useRef(null);
 
   useEffect(() => {
     // Attach L to window so leaflet plugins can find it
@@ -95,9 +116,12 @@ export default function Dashboard() {
         maxZoom: 18
       }).setView([26.4185, 80.305], 13);
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap contributors"
+      const tiles = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+        attribution: "© OpenStreetMap contributors, © CartoDB",
+        subdomains: "abcd",
+        maxZoom: 20
       }).addTo(map);
+      tileLayerRef.current = tiles;
 
       mapInstance.current = map;
 
@@ -151,6 +175,30 @@ export default function Dashboard() {
       }
     };
   }, []);
+
+  // Update tile layer theme dynamically when mapTheme changes
+  useEffect(() => {
+    const map = mapInstance.current;
+    if (!map || !tileLayerRef.current) return;
+
+    map.removeLayer(tileLayerRef.current);
+
+    let url = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+    let attr = "© OpenStreetMap contributors, © CartoDB";
+
+    if (mapTheme === "street") {
+      url = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+      attr = "© OpenStreetMap contributors";
+    }
+
+    const newTiles = L.tileLayer(url, {
+      attribution: attr,
+      subdomains: mapTheme === "dark" ? "abcd" : [],
+      maxZoom: 20
+    }).addTo(map);
+
+    tileLayerRef.current = newTiles;
+  }, [mapTheme]);
 
   // Update map when mode changes
   useEffect(() => {
@@ -237,12 +285,7 @@ export default function Dashboard() {
     }
 
     const layer = L.geoJSON(data, {
-      style: (feature) => {
-        const type = feature.properties.type;
-        if (type === "road") return { color: "#67e8f9", weight: 5, opacity: 0.8 };
-        if (type === "park") return { color: "#10b981", weight: 1.5, fillColor: "#34d399", fillOpacity: 0.35 };
-        return { color: "#94a3b8", weight: 2, fillColor: "#cbd5e1", fillOpacity: 0.2 };
-      },
+      style: (feature) => getPlaceStyle(feature, "base"),
       pointToLayer: (feature, latlng) => {
         const icon = L.divIcon({
           className: "",
@@ -252,9 +295,26 @@ export default function Dashboard() {
         return L.marker(latlng, { icon });
       },
       onEachFeature: (feature, layer) => {
+        layer.on("mouseover", (e) => {
+          if (selectedLayerRef.current === layer) return;
+          layer.setStyle(getPlaceStyle(feature, "hover"));
+        });
+        layer.on("mouseout", (e) => {
+          if (selectedLayerRef.current === layer) return;
+          layer.setStyle(getPlaceStyle(feature, "base"));
+        });
         layer.on("click", async (e) => {
           L.DomEvent.stopPropagation(e);
           setSelectedLatlng(e.latlng);
+          
+          if (selectedLayerRef.current && selectedLayerRef.current !== layer) {
+            const oldFeature = selectedLayerRef.current.feature;
+            selectedLayerRef.current.setStyle(getPlaceStyle(oldFeature, "base"));
+          }
+          
+          selectedLayerRef.current = layer;
+          layer.setStyle(getPlaceStyle(feature, "selected"));
+          
           await resolveAndRenderPlace(e.latlng.lat, e.latlng.lng);
         });
         layer.bindTooltip(`${feature.properties.name} (${feature.properties.type})`);
@@ -437,18 +497,40 @@ export default function Dashboard() {
     const map = mapInstance.current;
     if (!map) return;
 
-    if (selectionMarkerRef.current) map.removeLayer(selectionMarkerRef.current);
-
-    const tempIcon = L.divIcon({
-      className: "",
-      html: `<div class="place-pin" style="border-color: #f43f5e; box-shadow: 0 0 12px #f43f5e;">📍</div>`,
-      iconSize: [26, 26]
-    });
-    selectionMarkerRef.current = L.marker([lat, lng], { icon: tempIcon }).addTo(map);
-
     try {
       const resolved = await api(`/api/places/resolve?lat=${lat}&lng=${lng}`);
       setSelectedPlace(resolved);
+
+      if (resolved.is_virtual) {
+        if (selectedLayerRef.current) {
+          const oldFeature = selectedLayerRef.current.feature;
+          selectedLayerRef.current.setStyle(getPlaceStyle(oldFeature, "base"));
+          selectedLayerRef.current = null;
+        }
+        if (selectionMarkerRef.current) map.removeLayer(selectionMarkerRef.current);
+        const tempIcon = L.divIcon({
+          className: "",
+          html: `<div class="place-pin" style="border-color: #f43f5e; box-shadow: 0 0 12px #f43f5e;">📍</div>`,
+          iconSize: [26, 26]
+        });
+        selectionMarkerRef.current = L.marker([lat, lng], { icon: tempIcon }).addTo(map);
+      } else {
+        if (selectionMarkerRef.current) {
+          map.removeLayer(selectionMarkerRef.current);
+          selectionMarkerRef.current = null;
+        }
+        if (placesLayerRef.current) {
+          placesLayerRef.current.eachLayer((layer) => {
+            if (layer.feature && layer.feature.properties && layer.feature.properties.place_id === resolved.place.properties.place_id) {
+              if (selectedLayerRef.current && selectedLayerRef.current !== layer) {
+                selectedLayerRef.current.setStyle(getPlaceStyle(selectedLayerRef.current.feature, "base"));
+              }
+              selectedLayerRef.current = layer;
+              layer.setStyle(getPlaceStyle(layer.feature, "selected"));
+            }
+          });
+        }
+      }
 
       const placeId = resolved.place.properties.place_id;
       const [reviewsList, complaintsList] = await Promise.all([
@@ -458,7 +540,7 @@ export default function Dashboard() {
       setReviews(reviewsList);
       setPlaceComplaints(complaintsList);
 
-      if (activeTab !== "map") {
+      if (activeTabRef.current !== "map") {
         setActiveTab("map");
       }
     } catch (err) {
@@ -696,6 +778,26 @@ export default function Dashboard() {
               <button className={`mode-btn ${activeMode === "explore" ? "active" : ""}`} onClick={() => setActiveMode("explore")}>🛣️ Explore & Rate</button>
               <button className={`mode-btn ${activeMode === "aqi" ? "active" : ""}`} onClick={() => setActiveMode("aqi")}>📊 Civic AQI Layers</button>
               <button className={`mode-btn ${activeMode === "heatmap" ? "active" : ""}`} onClick={() => setActiveMode("heatmap")}>🔥 Complaint Heatmap</button>
+            </div>
+            
+            <div className="theme-toggle-container" style={{ marginTop: "12px", borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: "8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "0.8rem", color: "rgba(255, 255, 255, 0.7)", fontWeight: "500" }}>Map Theme:</span>
+              <div className="mode-buttons" style={{ gap: "4px" }}>
+                <button 
+                  className={`mode-btn ${mapTheme === "dark" ? "active" : ""}`} 
+                  onClick={() => setMapTheme("dark")}
+                  style={{ fontSize: "0.72rem", padding: "4px 8px" }}
+                >
+                  🌑 Dark Matter
+                </button>
+                <button 
+                  className={`mode-btn ${mapTheme === "street" ? "active" : ""}`} 
+                  onClick={() => setMapTheme("street")}
+                  style={{ fontSize: "0.72rem", padding: "4px 8px" }}
+                >
+                  🗺️ Street View
+                </button>
+              </div>
             </div>
           </div>
 

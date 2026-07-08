@@ -30,6 +30,7 @@ const state = {
   selectedPlaceState: null,
   selectedClick: null,
   selectedMarker: null,
+  selectedLayer: null,
   
   aqiLayer: null,
   loadedAqiLevel: null,
@@ -46,8 +47,10 @@ const map = L.map("map", {
   maxZoom: 18
 }).setView([26.4185, 80.305], 13); // Centered on Naubasta, Kanpur
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  attribution: "© OpenStreetMap contributors"
+L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+  attribution: "© OpenStreetMap contributors, © CartoDB",
+  subdomains: "abcd",
+  maxZoom: 20
 }).addTo(map);
 
 const markerCluster = L.markerClusterGroup();
@@ -291,16 +294,30 @@ async function refreshAqiLayer(level = null) {
 }
 
 // Load places vectors layer (roads/parks)
+function getPlaceStyle(feature, styleState = "base") {
+  const type = feature.properties.type;
+  if (styleState === "selected") {
+    if (type === "road") return { color: "#f43f5e", weight: 9, opacity: 1.0, lineCap: "round" };
+    if (type === "park") return { color: "#f43f5e", weight: 3, fillColor: "#fda4af", fillOpacity: 0.55 };
+    return { color: "#f43f5e", weight: 4, fillColor: "#fda4af", fillOpacity: 0.4 };
+  }
+  if (styleState === "hover") {
+    if (type === "road") return { color: "#22d3ee", weight: 8, opacity: 1.0, lineCap: "round" };
+    if (type === "park") return { color: "#34d399", weight: 2.5, fillColor: "#6ee7b7", fillOpacity: 0.45 };
+    return { color: "#cbd5e1", weight: 3.5, fillColor: "#e2e8f0", fillOpacity: 0.35 };
+  }
+  // Default base style
+  if (type === "road") return { color: "#67e8f9", weight: 5, opacity: 0.8, lineCap: "round" };
+  if (type === "park") return { color: "#10b981", weight: 1.5, fillColor: "#34d399", fillOpacity: 0.35 };
+  return { color: "#94a3b8", weight: 2, fillColor: "#cbd5e1", fillOpacity: 0.2 };
+}
+
+// Load places vectors layer (roads/parks)
 async function loadPlacesLayer() {
   const data = await api("/api/places?limit=300");
   
   state.placesLayer = L.geoJSON(data, {
-    style: (feature) => {
-      const type = feature.properties.type;
-      if (type === "road") return { color: "#67e8f9", weight: 5, opacity: 0.8 };
-      if (type === "park") return { color: "#10b981", weight: 1.5, fillColor: "#34d399", fillOpacity: 0.35 };
-      return { color: "#94a3b8", weight: 2, fillColor: "#cbd5e1", fillOpacity: 0.2 };
-    },
+    style: (feature) => getPlaceStyle(feature, "base"),
     pointToLayer: (feature, latlng) => {
       const icon = L.divIcon({
         className: "",
@@ -310,9 +327,27 @@ async function loadPlacesLayer() {
       return L.marker(latlng, { icon });
     },
     onEachFeature: (feature, layer) => {
+      layer.on("mouseover", (e) => {
+        if (state.selectedLayer === layer) return;
+        layer.setStyle(getPlaceStyle(feature, "hover"));
+      });
+      layer.on("mouseout", (e) => {
+        if (state.selectedLayer === layer) return;
+        layer.setStyle(getPlaceStyle(feature, "base"));
+      });
       layer.on("click", async (e) => {
         L.DomEvent.stopPropagation(e);
         state.selectedClick = e.latlng;
+        
+        // Reset previous selected layer style
+        if (state.selectedLayer && state.selectedLayer !== layer) {
+          const oldFeature = state.selectedLayer.feature;
+          state.selectedLayer.setStyle(getPlaceStyle(oldFeature, "base"));
+        }
+        
+        state.selectedLayer = layer;
+        layer.setStyle(getPlaceStyle(feature, "selected"));
+        
         await resolveAndRenderPlace(e.latlng.lat, e.latlng.lng);
       });
       layer.bindTooltip(`${feature.properties.name} (${feature.properties.type})`);
@@ -326,18 +361,39 @@ async function loadPlacesLayer() {
 
 // Resolve selected coordinates
 async function resolveAndRenderPlace(lat, lng) {
-  // Render temporary selection pin marker
-  if (state.selectedMarker) map.removeLayer(state.selectedMarker);
-  
-  const tempIcon = L.divIcon({
-    className: "",
-    html: `<div class="place-pin" style="border-color: #f43f5e; box-shadow: 0 0 12px #f43f5e;">📍</div>`,
-    iconSize: [26, 26]
-  });
-  state.selectedMarker = L.marker([lat, lng], { icon: tempIcon }).addTo(map);
-
   const resolved = await api(`/api/places/resolve?lat=${lat}&lng=${lng}`);
   state.selectedPlaceState = resolved;
+
+  if (resolved.is_virtual) {
+    if (state.selectedLayer) {
+      const oldFeature = state.selectedLayer.feature;
+      state.selectedLayer.setStyle(getPlaceStyle(oldFeature, "base"));
+      state.selectedLayer = null;
+    }
+    if (state.selectedMarker) map.removeLayer(state.selectedMarker);
+    const tempIcon = L.divIcon({
+      className: "",
+      html: `<div class="place-pin" style="border-color: #f43f5e; box-shadow: 0 0 12px #f43f5e;">📍</div>`,
+      iconSize: [26, 26]
+    });
+    state.selectedMarker = L.marker([lat, lng], { icon: tempIcon }).addTo(map);
+  } else {
+    if (state.selectedMarker) {
+      map.removeLayer(state.selectedMarker);
+      state.selectedMarker = null;
+    }
+    if (state.placesLayer) {
+      state.placesLayer.eachLayer((layer) => {
+        if (layer.feature && layer.feature.properties && layer.feature.properties.place_id === resolved.place.properties.place_id) {
+          if (state.selectedLayer && state.selectedLayer !== layer) {
+            state.selectedLayer.setStyle(getPlaceStyle(state.selectedLayer.feature, "base"));
+          }
+          state.selectedLayer = layer;
+          layer.setStyle(getPlaceStyle(layer.feature, "selected"));
+        }
+      });
+    }
+  }
 
   // Render text summary
   const place = resolved.place.properties;
