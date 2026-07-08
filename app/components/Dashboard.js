@@ -91,6 +91,7 @@ export default function Dashboard() {
   const heatLayerRef = useRef(null);
   const selectionMarkerRef = useRef(null);
   const selectedLayerRef = useRef(null);
+  const selectedAqiLayerRef = useRef(null);
   const tileLayerRef = useRef(null);
 
   useEffect(() => {
@@ -369,6 +370,9 @@ export default function Dashboard() {
       }, 400); // Remove from map after fade-out transition completes
     }
 
+    // Reset aqi selection reference when loading a new zoom level
+    selectedAqiLayerRef.current = null;
+
     const layer = L.geoJSON(data, {
       style: (feature) => ({
         fillColor: scoreToColor(feature.properties.area_score),
@@ -376,13 +380,55 @@ export default function Dashboard() {
         weight: 1.5,
         className: "aqi-region" // Starts transparent in CSS, transitions to full opacity
       }),
-      onEachFeature: (feature, layer) => {
-        layer.bindTooltip(`<strong>${feature.properties.name}</strong><br>AQI Score: ${feature.properties.area_score} (${feature.properties.area_status || "Unknown"})`, {
+      onEachFeature: (feature, childLayer) => {
+        childLayer.bindTooltip(`<strong>${feature.properties.name}</strong><br>AQI Score: ${feature.properties.area_score} (${feature.properties.area_status || "Unknown"})`, {
           sticky: true
         });
-        layer.on("click", (e) => {
+
+        childLayer.on("mouseover", (e) => {
+          if (selectedAqiLayerRef.current === childLayer) return;
+          if (typeof childLayer.setStyle === "function") {
+            childLayer.setStyle({
+              color: "#c084fc", // Lavender hover
+              weight: 2.5
+            });
+          }
+        });
+
+        childLayer.on("mouseout", (e) => {
+          if (selectedAqiLayerRef.current === childLayer) return;
+          if (typeof childLayer.setStyle === "function") {
+            childLayer.setStyle({
+              color: "#ffffff", // Revert to white
+              weight: 1.5
+            });
+          }
+        });
+
+        childLayer.on("click", (e) => {
           L.DomEvent.stopPropagation(e);
-          const center = layer.getBounds().getCenter();
+
+          // Clear previous selection highlight
+          if (selectedAqiLayerRef.current && selectedAqiLayerRef.current !== childLayer) {
+            const prev = selectedAqiLayerRef.current;
+            if (typeof prev.setStyle === "function") {
+              prev.setStyle({
+                color: "#ffffff",
+                weight: 1.5
+              });
+            }
+          }
+
+          // Apply selected boundary style
+          selectedAqiLayerRef.current = childLayer;
+          if (typeof childLayer.setStyle === "function") {
+            childLayer.setStyle({
+              color: "#ec4899", // Hot pink boundary outline
+              weight: 3.5
+            });
+          }
+
+          const center = childLayer.getBounds().getCenter();
           const currentZoom = activeMap.getZoom();
           let nextZoom = currentZoom + 3;
           if (level === "india-states") nextZoom = 7;

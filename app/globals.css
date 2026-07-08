@@ -1153,3 +1153,11 @@ textarea {
     max-height: none;
   }
 }
+
+/* Disable browser-default bounding box focus outlines on map layers */
+.leaflet-interactive:focus,
+path.leaflet-interactive:focus,
+svg.leaflet-zoom-animated:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
