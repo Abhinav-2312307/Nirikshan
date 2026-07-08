@@ -92,6 +92,7 @@ export default function Dashboard() {
   const selectionMarkerRef = useRef(null);
   const selectedLayerRef = useRef(null);
   const selectedAqiLayerRef = useRef(null);
+  const selectedAreaIdRef = useRef(null);
   const tileLayerRef = useRef(null);
 
   useEffect(() => {
@@ -370,17 +371,25 @@ export default function Dashboard() {
       }, 400); // Remove from map after fade-out transition completes
     }
 
-    // Reset aqi selection reference when loading a new zoom level
+    // Clear temporary visual ref; it will be re-assigned in onEachFeature if present in the new set
     selectedAqiLayerRef.current = null;
 
     const layer = L.geoJSON(data, {
-      style: (feature) => ({
-        fillColor: scoreToColor(feature.properties.area_score),
-        color: "#ffffff",
-        weight: 1.5,
-        className: "aqi-region" // Starts transparent in CSS, transitions to full opacity
-      }),
+      style: (feature) => {
+        const isSelected = selectedAreaIdRef.current === feature.properties.area_id;
+        return {
+          fillColor: scoreToColor(feature.properties.area_score),
+          color: isSelected ? "#ec4899" : "#ffffff", // Hot pink outline if selected
+          weight: isSelected ? 3.5 : 1.5,
+          className: "aqi-region" // Starts transparent in CSS, transitions to full opacity
+        };
+      },
       onEachFeature: (feature, childLayer) => {
+        const isSelected = selectedAreaIdRef.current === feature.properties.area_id;
+        if (isSelected) {
+          selectedAqiLayerRef.current = childLayer;
+        }
+
         childLayer.bindTooltip(`<strong>${feature.properties.name}</strong><br>AQI Score: ${feature.properties.area_score} (${feature.properties.area_status || "Unknown"})`, {
           sticky: true
         });
@@ -420,6 +429,7 @@ export default function Dashboard() {
           }
 
           // Apply selected boundary style
+          selectedAreaIdRef.current = feature.properties.area_id;
           selectedAqiLayerRef.current = childLayer;
           if (typeof childLayer.setStyle === "function") {
             childLayer.setStyle({

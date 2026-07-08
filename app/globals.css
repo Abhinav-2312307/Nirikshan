@@ -1155,9 +1155,18 @@ textarea {
 }
 
 /* Disable browser-default bounding box focus outlines on map layers */
+.leaflet-container *,
+.leaflet-container *:focus,
+.leaflet-container *:focus-visible,
+.leaflet-interactive,
 .leaflet-interactive:focus,
-path.leaflet-interactive:focus,
-svg.leaflet-zoom-animated:focus {
+.leaflet-interactive:focus-visible,
+path:focus,
+path:focus-visible,
+svg:focus,
+svg:focus-visible {
   outline: none !important;
+  outline-width: 0 !important;
   box-shadow: none !important;
+  -webkit-tap-highlight-color: transparent;
 }
