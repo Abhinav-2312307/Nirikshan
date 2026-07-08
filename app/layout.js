@@ -22,7 +22,10 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-slate-950 text-slate-100">
+      <body className="min-h-full flex flex-col bg-slate-950 text-slate-100 relative overflow-x-hidden">
+        <div className="glass-blob blob-1"></div>
+        <div className="glass-blob blob-2"></div>
+        <div className="glass-blob blob-3"></div>
         {children}
       </body>
     </html>
