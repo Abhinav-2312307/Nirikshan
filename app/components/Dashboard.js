@@ -193,7 +193,7 @@ export default function Dashboard() {
 
     const newTiles = L.tileLayer(url, {
       attribution: attr,
-      subdomains: mapTheme === "dark" ? "abcd" : [],
+      subdomains: mapTheme === "dark" ? "abcd" : "abc",
       maxZoom: 20
     }).addTo(map);
 
@@ -297,11 +297,15 @@ export default function Dashboard() {
       onEachFeature: (feature, layer) => {
         layer.on("mouseover", (e) => {
           if (selectedLayerRef.current === layer) return;
-          layer.setStyle(getPlaceStyle(feature, "hover"));
+          if (typeof layer.setStyle === "function") {
+            layer.setStyle(getPlaceStyle(feature, "hover"));
+          }
         });
         layer.on("mouseout", (e) => {
           if (selectedLayerRef.current === layer) return;
-          layer.setStyle(getPlaceStyle(feature, "base"));
+          if (typeof layer.setStyle === "function") {
+            layer.setStyle(getPlaceStyle(feature, "base"));
+          }
         });
         layer.on("click", async (e) => {
           L.DomEvent.stopPropagation(e);
@@ -309,11 +313,15 @@ export default function Dashboard() {
           
           if (selectedLayerRef.current && selectedLayerRef.current !== layer) {
             const oldFeature = selectedLayerRef.current.feature;
-            selectedLayerRef.current.setStyle(getPlaceStyle(oldFeature, "base"));
+            if (typeof selectedLayerRef.current.setStyle === "function") {
+              selectedLayerRef.current.setStyle(getPlaceStyle(oldFeature, "base"));
+            }
           }
           
           selectedLayerRef.current = layer;
-          layer.setStyle(getPlaceStyle(feature, "selected"));
+          if (typeof layer.setStyle === "function") {
+            layer.setStyle(getPlaceStyle(feature, "selected"));
+          }
           
           await resolveAndRenderPlace(e.latlng.lat, e.latlng.lng);
         });
@@ -504,7 +512,9 @@ export default function Dashboard() {
       if (resolved.is_virtual) {
         if (selectedLayerRef.current) {
           const oldFeature = selectedLayerRef.current.feature;
-          selectedLayerRef.current.setStyle(getPlaceStyle(oldFeature, "base"));
+          if (typeof selectedLayerRef.current.setStyle === "function") {
+            selectedLayerRef.current.setStyle(getPlaceStyle(oldFeature, "base"));
+          }
           selectedLayerRef.current = null;
         }
         if (selectionMarkerRef.current) map.removeLayer(selectionMarkerRef.current);
@@ -523,10 +533,14 @@ export default function Dashboard() {
           placesLayerRef.current.eachLayer((layer) => {
             if (layer.feature && layer.feature.properties && layer.feature.properties.place_id === resolved.place.properties.place_id) {
               if (selectedLayerRef.current && selectedLayerRef.current !== layer) {
-                selectedLayerRef.current.setStyle(getPlaceStyle(selectedLayerRef.current.feature, "base"));
+                if (typeof selectedLayerRef.current.setStyle === "function") {
+                  selectedLayerRef.current.setStyle(getPlaceStyle(selectedLayerRef.current.feature, "base"));
+                }
               }
               selectedLayerRef.current = layer;
-              layer.setStyle(getPlaceStyle(layer.feature, "selected"));
+              if (typeof layer.setStyle === "function") {
+                layer.setStyle(getPlaceStyle(layer.feature, "selected"));
+              }
             }
           });
         }
