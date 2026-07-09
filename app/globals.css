@@ -1186,7 +1186,7 @@ svg:focus-visible {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  z-index: 800;
+  z-index: 9999 !important;
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);

@@ -1038,6 +1038,8 @@ export default function Dashboard() {
             </div>
           )}
 
+          <div ref={mapRef} id="map"></div>
+
           <button 
             className={`btn-locate ${isLocating ? "active" : ""}`} 
             onClick={handleLocateMe}
@@ -1055,8 +1057,6 @@ export default function Dashboard() {
               </svg>
             )}
           </button>
-
-          <div ref={mapRef} id="map"></div>
         </section>
 
         <aside className="sheet">
