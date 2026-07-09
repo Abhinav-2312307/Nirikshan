@@ -1170,3 +1170,103 @@ svg:focus-visible {
   box-shadow: none !important;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* Locate Me Button Style */
+.btn-locate {
+  position: absolute;
+  bottom: 80px; /* Float above zoom buttons or stats row */
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(18, 14, 26, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 800;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-locate:hover {
+  background: rgba(18, 14, 26, 0.9);
+  border-color: var(--brand);
+  color: #fff;
+  transform: scale(1.05);
+  box-shadow: 0 0 12px rgba(192, 132, 252, 0.3);
+}
+
+.btn-locate.active {
+  background: var(--brand-gradient);
+  color: #0c0812;
+  border-color: transparent;
+  box-shadow: 0 0 16px rgba(192, 132, 252, 0.55);
+}
+
+.loader-locate {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: spin 1s infinite linear;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* User Location Pulsing Dot and Pointer Cone */
+.user-location-container {
+  width: 40px;
+  height: 40px;
+  position: relative;
+}
+
+.user-location-pulsing-dot {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #c084fc;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 8px rgba(192, 132, 252, 0.8);
+  z-index: 10;
+}
+
+.user-location-pulsing-dot::after {
+  content: "";
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid rgba(192, 132, 252, 0.4);
+  animation: pulse-ring 1.8s infinite ease-out;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.5); opacity: 1; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+.user-location-heading {
+  position: absolute;
+  top: -10px;
+  left: 5px;
+  width: 30px;
+  height: 30px;
+  background: linear-gradient(to top, rgba(192, 132, 252, 0.4), rgba(192, 132, 252, 0));
+  clip-path: polygon(50% 0%, 15% 100%, 85% 100%);
+  transform-origin: center bottom;
+  z-index: 5;
+  display: none;
+}

@@ -51,6 +51,7 @@ export default function Dashboard() {
   const [authorityRole, setAuthorityRole] = useState("citizen"); // "citizen" | "KNN" | "KDA" | "JAL"
   const [viewModerationQueue, setViewModerationQueue] = useState(false);
   const [mapTheme, setMapTheme] = useState("dark"); // "dark" | "street"
+  const [isLocating, setIsLocating] = useState(false);
 
   // Keep refs of active mode and active tab to prevent stale closures in Leaflet events
   const activeTabRef = useRef(activeTab);
@@ -93,6 +94,8 @@ export default function Dashboard() {
   const selectedLayerRef = useRef(null);
   const selectedAqiLayerRef = useRef(null);
   const selectedAreaIdRef = useRef(null);
+  const userLocationMarkerRef = useRef(null);
+  const orientationListenerRef = useRef(null);
   const tileLayerRef = useRef(null);
 
   useEffect(() => {
@@ -174,6 +177,9 @@ export default function Dashboard() {
         }
         mapInstance.current.remove();
         mapInstance.current = null;
+      }
+      if (orientationListenerRef.current) {
+        window.removeEventListener("deviceorientation", orientationListenerRef.current);
       }
     };
   }, []);
@@ -514,6 +520,99 @@ export default function Dashboard() {
         }, 50);
       });
     }
+  };
+
+  const requestOrientationPermission = () => {
+    if (typeof window === "undefined") return;
+
+    const handleOrientation = (e) => {
+      let headingVal = null;
+      if (e.webkitCompassHeading !== undefined) {
+        headingVal = e.webkitCompassHeading;
+      } else if (e.alpha !== undefined) {
+        headingVal = 360 - e.alpha;
+      }
+
+      if (headingVal !== null) {
+        const roundedHeading = Math.round(headingVal);
+        const el = document.querySelector(".user-location-heading");
+        if (el) {
+          el.style.transform = `rotate(${roundedHeading}deg)`;
+          el.style.display = "block";
+        }
+      }
+    };
+
+    orientationListenerRef.current = handleOrientation;
+
+    if (
+      typeof DeviceOrientationEvent !== "undefined" &&
+      typeof DeviceOrientationEvent.requestPermission === "function"
+    ) {
+      DeviceOrientationEvent.requestPermission()
+        .then((response) => {
+          if (response === "granted") {
+            window.addEventListener("deviceorientation", handleOrientation);
+          }
+        })
+        .catch(console.error);
+    } else {
+      window.addEventListener("deviceorientation", handleOrientation);
+    }
+  };
+
+  const updateUserLocationMarker = (lat, lng) => {
+    const map = mapInstance.current;
+    if (!map) return;
+
+    if (userLocationMarkerRef.current) {
+      map.removeLayer(userLocationMarkerRef.current);
+    }
+
+    const icon = L.divIcon({
+      className: "",
+      html: `
+        <div class="user-location-container">
+          <div class="user-location-heading"></div>
+          <div class="user-location-pulsing-dot"></div>
+        </div>
+      `,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20]
+    });
+
+    userLocationMarkerRef.current = L.marker([lat, lng], { icon }).addTo(map);
+  };
+
+  const handleLocateMe = () => {
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const map = mapInstance.current;
+        if (!map) {
+          setIsLocating(false);
+          return;
+        }
+
+        map.flyTo([latitude, longitude], 15, { duration: 1.2 });
+        updateUserLocationMarker(latitude, longitude);
+        setIsLocating(false);
+
+        // Attempt to request and hook orientation pointer
+        requestOrientationPermission();
+      },
+      (error) => {
+        setIsLocating(false);
+        alert(`Could not retrieve location: ${error.message}`);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
   const handleZoomEnd = async () => {
@@ -938,6 +1037,24 @@ export default function Dashboard() {
               </div>
             </div>
           )}
+
+          <button 
+            className={`btn-locate ${isLocating ? "active" : ""}`} 
+            onClick={handleLocateMe}
+            title="Show My Location"
+          >
+            {isLocating ? (
+              <div className="loader-locate"></div>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="7"></circle>
+                <line x1="12" y1="1" x2="12" y2="5"></line>
+                <line x1="12" y1="19" x2="12" y2="23"></line>
+                <line x1="1" y1="12" x2="5" y2="12"></line>
+                <line x1="19" y1="12" x2="23" y2="12"></line>
+              </svg>
+            )}
+          </button>
 
           <div ref={mapRef} id="map"></div>
         </section>
