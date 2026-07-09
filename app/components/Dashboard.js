@@ -287,6 +287,10 @@ export default function Dashboard() {
     }
 
     const layer = L.geoJSON(data, {
+      filter: (feature) => {
+        // Exclude static point landmarks (homes, offices, shops, etc.) for now
+        return feature.geometry && feature.geometry.type !== "Point";
+      },
       style: (feature) => getPlaceStyle(feature, "base"),
       pointToLayer: (feature, latlng) => {
         const icon = L.divIcon({
@@ -414,8 +418,9 @@ export default function Dashboard() {
           }
         });
 
-        childLayer.on("click", (e) => {
+        childLayer.on("click", async (e) => {
           L.DomEvent.stopPropagation(e);
+          setSelectedLatlng(e.latlng);
 
           // Clear previous selection highlight
           if (selectedAqiLayerRef.current && selectedAqiLayerRef.current !== childLayer) {
@@ -438,14 +443,57 @@ export default function Dashboard() {
             });
           }
 
-          const center = childLayer.getBounds().getCenter();
-          const currentZoom = activeMap.getZoom();
-          let nextZoom = currentZoom + 3;
-          if (level === "india-states") nextZoom = 7;
-          else if (level === "up-districts") nextZoom = 10;
-          else if (level === "kanpur-subdistricts") nextZoom = 13;
-          else if (level === "macro") nextZoom = 15;
-          activeMap.flyTo(center, nextZoom, { duration: 0.8 });
+          // Drop a selection pin marker at the exact coordinate clicked
+          if (selectionMarkerRef.current) {
+            activeMap.removeLayer(selectionMarkerRef.current);
+          }
+          const tempIcon = L.divIcon({
+            className: "",
+            html: `<div class="place-pin" style="border-color: #ec4899; box-shadow: 0 0 12px #ec4899;">📍</div>`,
+            iconSize: [26, 26]
+          });
+          selectionMarkerRef.current = L.marker(e.latlng, { icon: tempIcon }).addTo(activeMap);
+
+          // Select the administrative area itself as the place card entity so user can rate/review it
+          const areaId = feature.properties.area_id;
+          try {
+            const [reviewsList, complaintsList] = await Promise.all([
+              api(`/api/places/${encodeURIComponent(areaId)}/reviews`),
+              api(`/api/complaints?place_id=${encodeURIComponent(areaId)}&include_moderation=true`)
+            ]);
+
+            setReviews(reviewsList);
+            setPlaceComplaints(complaintsList);
+
+            setSelectedPlace({
+              place: {
+                type: "Feature",
+                properties: {
+                  place_id: areaId,
+                  name: feature.properties.name,
+                  type: feature.properties.level || "area",
+                  area_id: areaId,
+                  address: `${feature.properties.city || "Local Jurisdiction"}, Uttar Pradesh`,
+                  is_virtual: false
+                },
+                geometry: feature.geometry
+              },
+              metrics: {
+                avg_rating: reviewsList.length ? Number((reviewsList.reduce((s, r) => s + r.rating, 0) / reviewsList.length).toFixed(1)) : 0,
+                review_count: reviewsList.length,
+                complaint_count: complaintsList.length,
+                pending_complaints: complaintsList.filter(c => !["Resolved", "Closed"].includes(c.status)).length
+              },
+              area: {
+                area_id: areaId,
+                name: feature.properties.name,
+                authority: feature.properties.authority || "Local Authority",
+                city: feature.properties.city || "Kanpur"
+              }
+            });
+          } catch (err) {
+            console.error("Error loading metrics for clicked area:", err);
+          }
         });
       }
     });
