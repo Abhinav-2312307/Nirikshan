@@ -1270,3 +1270,16 @@ svg:focus-visible {
   z-index: 5;
   display: none;
 }
+
+/* Continuous Blended AQI Heatmap Style */
+.aqi-region.aqi-heatmap-blended {
+  filter: blur(34px);
+  opacity: 0.82 !important;
+  fill-opacity: 0.75 !important;
+  transition: filter 0.4s ease, fill-opacity 0.4s ease, fill 0.4s ease;
+}
+
+/* Ensure Leaflet vector container allows SVG blurred paths to bleed and interpolate organically */
+.leaflet-overlay-pane svg {
+  overflow: visible !important;
+}

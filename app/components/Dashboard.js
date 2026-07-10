@@ -383,14 +383,17 @@ export default function Dashboard() {
     // Clear temporary visual ref; it will be re-assigned in onEachFeature if present in the new set
     selectedAqiLayerRef.current = null;
 
+    const isHeatmap = activeModeRef.current === "heatmap";
+
     const layer = L.geoJSON(data, {
       style: (feature) => {
         const isSelected = selectedAreaIdRef.current === feature.properties.area_id;
         return {
           fillColor: scoreToColor(feature.properties.area_score),
-          color: isSelected ? "#ec4899" : "#ffffff", // Hot pink outline if selected
-          weight: isSelected ? 3.5 : 1.5,
-          className: "aqi-region" // Starts transparent in CSS, transitions to full opacity
+          color: isSelected ? "#ec4899" : (isHeatmap ? "transparent" : "#ffffff"),
+          weight: isSelected ? 3.5 : (isHeatmap ? 0 : 1.5),
+          fillOpacity: isHeatmap ? 0.75 : 0.45,
+          className: `aqi-region ${isHeatmap ? "aqi-heatmap-blended" : ""}`
         };
       },
       onEachFeature: (feature, childLayer) => {
@@ -404,6 +407,7 @@ export default function Dashboard() {
         });
 
         childLayer.on("mouseover", (e) => {
+          if (isHeatmap) return;
           if (selectedAqiLayerRef.current === childLayer) return;
           if (typeof childLayer.setStyle === "function") {
             childLayer.setStyle({
@@ -414,6 +418,7 @@ export default function Dashboard() {
         });
 
         childLayer.on("mouseout", (e) => {
+          if (isHeatmap) return;
           if (selectedAqiLayerRef.current === childLayer) return;
           if (typeof childLayer.setStyle === "function") {
             childLayer.setStyle({
@@ -615,7 +620,7 @@ export default function Dashboard() {
   };
 
   const handleZoomEnd = async () => {
-    if (activeModeRef.current !== "aqi") return;
+    if (activeModeRef.current !== "aqi" && activeModeRef.current !== "heatmap") return;
     await refreshAqiLayer();
   };
 
@@ -695,11 +700,7 @@ export default function Dashboard() {
     } else if (activeMode === "aqi") {
       refreshAqiLayer();
     } else if (activeMode === "heatmap") {
-      if (!heatLayerRef.current) {
-        heatLayerRef.current = L.heatLayer([], { radius: 26, blur: 22, maxZoom: 18 });
-      }
-      refreshComplaints();
-      if (heatLayerRef.current) heatLayerRef.current.addTo(map);
+      refreshAqiLayer();
     }
   };
 
