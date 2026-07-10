@@ -284,9 +284,8 @@ export default function Dashboard() {
   };
 
   const loadPlacesLayer = async () => {
-    const data = await api("/api/places?limit=300");
-    const map = mapInstance.current;
-    if (!map) return;
+    // Disable loading mock places vector layer to keep map clean of artificial polylines/polygons
+    return;
 
     if (placesLayerRef.current && map.hasLayer(placesLayerRef.current)) {
       map.removeLayer(placesLayerRef.current);

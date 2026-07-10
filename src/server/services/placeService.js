@@ -120,55 +120,28 @@ export async function listPlaces(filters = {}) {
 }
 
 export async function resolvePlace(lat, lng) {
-  const point = [lng, lat];
-  const { db } = await connectToDatabase();
+  const area = findAreaForPoint(lat, lng);
+  const areaId = area?.properties?.area_id || null;
 
-  // Find the closest place using a standard array distance check, or geospatial $near if indexed
-  // Since we index places by location, we can fetch all and sort by distance.
-  const places = await db.collection("places").find({}).toArray();
-
-  let winner = null;
-  let winnerDist = Number.POSITIVE_INFINITY;
-
-  for (const feature of places) {
-    const dist = geometryDistanceMeters(point, feature);
-    if (dist < winnerDist) {
-      winner = feature;
-      winnerDist = dist;
-    }
-  }
-
-  const threshold = 150;
-  if (!winner || winnerDist > threshold) {
-    const area = findAreaForPoint(lat, lng);
-    const areaId = area?.properties?.area_id || null;
-
-    return {
-      place: {
-        type: "Feature",
-        properties: {
-          place_id: `VIRTUAL_${lat.toFixed(5)}_${lng.toFixed(5)}`,
-          name: "Selected Location",
-          type: "location",
-          area_id: areaId,
-          address: "Pinned map location",
-          is_virtual: true
-        },
-        geometry: {
-          type: "Point",
-          coordinates: [lng, lat]
-        }
+  return {
+    place: {
+      type: "Feature",
+      properties: {
+        place_id: `VIRTUAL_${lat.toFixed(5)}_${lng.toFixed(5)}`,
+        name: "Selected Location",
+        type: "location",
+        area_id: areaId,
+        address: "Pinned map location",
+        is_virtual: true
       },
-      distance_meters: 0,
-      is_virtual: true
-    };
-  }
-
-  if (winner) {
-    const area = findAreaForPoint(lat, lng);
-    winner.properties.area_id = area?.properties?.area_id || null;
-  }
-  return { place: winner, distance_meters: Math.round(winnerDist), is_virtual: false };
+      geometry: {
+        type: "Point",
+        coordinates: [lng, lat]
+      }
+    },
+    distance_meters: 0,
+    is_virtual: true
+  };
 }
 
 export async function ensurePlaceExists(placeFeature) {
