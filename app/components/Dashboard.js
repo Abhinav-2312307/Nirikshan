@@ -510,7 +510,7 @@ export default function Dashboard() {
 
     aqiLayerRef.current = layer;
 
-    if (activeModeRef.current === "aqi") {
+    if (activeModeRef.current === "aqi" || activeModeRef.current === "heatmap") {
       layer.addTo(activeMap);
       // Wait for layout/paint and trigger smooth fade-in
       requestAnimationFrame(() => {
