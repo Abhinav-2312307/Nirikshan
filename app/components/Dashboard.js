@@ -3,24 +3,52 @@
 import { useState, useEffect, useRef } from "react";
 import L from "leaflet";
 
-// Mapping icons for different categories
+import { renderToString } from "react-dom/server";
+import { AlertTriangle, Droplets, Lightbulb, Trash2, Construction, Map as MapIcon, TreePine, Home, Store, MapPin, Search, Calendar, Star, CheckCircle, CheckCircle2, ShieldCheck, Activity, BarChart, BarChart3, Settings, ShieldAlert, Crosshair, User, TrendingUp, ChevronRight, Download, X, Menu, ChevronDown, ChevronUp, LayoutDashboard, Shield } from "lucide-react";
+
+// Helper to render icons for Leaflet divIcon HTML strings
+const getIconHtml = (IconComponent, color = "currentColor", size = 18) => {
+  return renderToString(<IconComponent size={size} color={color} strokeWidth={2.5} />);
+};
+
+// Mapping icons for different categories (HTML strings for Leaflet)
+const ISSUE_ICONS_HTML = {
+  Pothole: getIconHtml(Construction, "var(--warning)"),
+  Water: getIconHtml(Droplets, "var(--info)"),
+  Streetlight: getIconHtml(Lightbulb, "var(--warning)"),
+  Sewer: getIconHtml(Droplets, "var(--neutral)"),
+  Garbage: getIconHtml(Trash2, "var(--critical)"),
+  Safety: getIconHtml(AlertTriangle, "var(--critical)"),
+  Encroachment: getIconHtml(Construction, "var(--warning)")
+};
+
+const PLACE_ICONS_HTML = {
+  road: getIconHtml(MapIcon),
+  park: getIconHtml(TreePine, "var(--success)"),
+  home: getIconHtml(Home),
+  shop: getIconHtml(Store),
+  "public-place": getIconHtml(MapPin),
+  location: getIconHtml(MapPin)
+};
+
+// Mapping icons for JSX rendering
 const ISSUE_ICONS = {
-  Pothole: "🕳️",
-  Water: "🚰",
-  Streetlight: "💡",
-  Sewer: "🚿",
-  Garbage: "🗑️",
-  Safety: "⚠️",
-  Encroachment: "🚧"
+  Pothole: <Construction size={16} />,
+  Water: <Droplets size={16} />,
+  Streetlight: <Lightbulb size={16} />,
+  Sewer: <Droplets size={16} />,
+  Garbage: <Trash2 size={16} />,
+  Safety: <AlertTriangle size={16} />,
+  Encroachment: <Construction size={16} />
 };
 
 const PLACE_ICONS = {
-  road: "🛣️",
-  park: "🌳",
-  home: "🏠",
-  shop: "🏬",
-  "public-place": "📍",
-  location: "📌"
+  road: <MapIcon size={16} />,
+  park: <TreePine size={16} />,
+  home: <Home size={16} />,
+  shop: <Store size={16} />,
+  "public-place": <MapPin size={16} />,
+  location: <MapPin size={16} />
 };
 
 function getPlaceStyle(feature, styleState = "base") {
@@ -52,6 +80,30 @@ export default function Dashboard() {
   const [viewModerationQueue, setViewModerationQueue] = useState(false);
   const [mapTheme, setMapTheme] = useState("dark"); // "dark" | "street"
   const [isLocating, setIsLocating] = useState(false);
+  
+  // New UX States
+  const [isReviewFormOpen, setIsReviewFormOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [complaintFilter, setComplaintFilter] = useState("all"); // "all" | "pending" | "resolved" | "critical"
+  const [citizenReportFilter, setCitizenReportFilter] = useState("All"); // "All" | "Resolved" | "Pending"
+  const [mapZoom, setMapZoom] = useState(13);
+  const [isNavMenuOpen, setIsNavMenuOpen] = useState(false);
+  const [isStatsExpanded, setIsStatsExpanded] = useState(false);
+  const navMenuRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (navMenuRef.current && !navMenuRef.current.contains(event.target)) {
+        setIsNavMenuOpen(false);
+      }
+    }
+    if (isNavMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isNavMenuOpen]);
 
   // Keep refs of active mode and active tab to prevent stale closures in Leaflet events
   const activeTabRef = useRef(activeTab);
@@ -79,6 +131,82 @@ export default function Dashboard() {
   const [officerComplaints, setOfficerComplaints] = useState([]);
   const [authorities, setAuthorities] = useState([]);
   const [wardRankings, setWardRankings] = useState([]);
+  
+  // Governance Console Phase 4 State & Mock Data
+  const [govResolutionPeriod, setGovResolutionPeriod] = useState("30");
+  const [selectedAuthorityDetails, setSelectedAuthorityDetails] = useState(null);
+
+  // Phase 5: Intelligence & Polish States
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [showInsight, setShowInsight] = useState(false);
+  const [showScoreBreakdown, setShowScoreBreakdown] = useState(false);
+  const [heatmapPeriod, setHeatmapPeriod] = useState(30); // 7, 30, 90
+  const [isPlayingHeatmap, setIsPlayingHeatmap] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState(null);
+
+  // Global Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Don't trigger shortcuts if typing in an input
+      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+      
+      switch (e.key.toLowerCase()) {
+        case "/":
+          e.preventDefault();
+          setShowSearchModal(true);
+          break;
+        case "escape":
+          setShowSearchModal(false);
+          setIsReportModalOpen(false);
+          setIsReviewFormOpen(false);
+          setSelectedAuthorityDetails(null);
+          break;
+        case "m":
+          if (!showSearchModal) setActiveTab("map");
+          break;
+        case "a":
+          if (!showSearchModal && activeTab === "map") setActiveMode("aqi");
+          break;
+        case "c":
+          if (!showSearchModal && activeTab === "map") setActiveMode("heatmap");
+          break;
+        case "r":
+          if (!showSearchModal) setIsReportModalOpen(true);
+          break;
+        default:
+          break;
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeTab, showSearchModal]);
+
+  // Heatmap Playback Logic
+  useEffect(() => {
+    if (!isPlayingHeatmap) return;
+    
+    const interval = setInterval(() => {
+      setHeatmapPeriod(prev => {
+        if (prev === 7) return 30;
+        if (prev === 30) return 90;
+        return 7;
+      });
+    }, 2000);
+    
+    return () => clearInterval(interval);
+  }, [isPlayingHeatmap]);
+  
+  const mockResolutionData = {
+    "7": { received: 142, resolved: 120, open: 22, trend: "+12%" },
+    "30": { received: 840, resolved: 710, open: 130, trend: "+8%" },
+    "90": { received: 2450, resolved: 1980, open: 470, trend: "-2%" }
+  };
+  
+  const handleMapNavigate = () => {
+    setActiveTab("map");
+    setActiveMode("explore");
+  };
   
   // Simulated photo upload
   const [uploadedImage, setUploadedImage] = useState(null);
@@ -130,7 +258,30 @@ export default function Dashboard() {
 
       mapInstance.current = map;
 
-      const markerCluster = L.markerClusterGroup();
+      const markerCluster = L.markerClusterGroup({
+        iconCreateFunction: function(cluster) {
+          const childCount = cluster.getChildCount();
+          let c = ' marker-cluster-';
+          if (childCount < 10) c += 'small';
+          else if (childCount < 100) c += 'medium';
+          else c += 'large';
+          
+          let pending = 0;
+          let resolved = 0;
+          cluster.getAllChildMarkers().forEach(m => {
+            if (m.options.complaintStatus === 'Resolved') resolved++;
+            else pending++;
+          });
+          
+          const title = `${childCount} CIVIC REPORTS&#10;${pending} Pending&#10;${resolved} Resolved`;
+
+          return new L.DivIcon({
+            html: `<div title="${title}"><span>${childCount}</span></div>`,
+            className: 'marker-cluster' + c,
+            iconSize: new L.Point(40, 40)
+          });
+        }
+      });
       map.addLayer(markerCluster);
       clusterLayerRef.current = markerCluster;
 
@@ -208,7 +359,7 @@ export default function Dashboard() {
     tileLayerRef.current = newTiles;
   }, [mapTheme]);
 
-  // Update map when mode changes
+  // Update map when mode or filter changes
   useEffect(() => {
     if (mapInstance.current) {
       updateMapVisuals();
@@ -216,7 +367,7 @@ export default function Dashboard() {
         if (mapInstance.current) mapInstance.current.invalidateSize();
       });
     }
-  }, [activeMode]);
+  }, [activeMode, complaintFilter]);
 
   // Update map when tab changes
   useEffect(() => {
@@ -300,7 +451,7 @@ export default function Dashboard() {
       pointToLayer: (feature, latlng) => {
         const icon = L.divIcon({
           className: "",
-          html: `<div class="place-pin">${PLACE_ICONS[feature.properties.type] || "📍"}</div>`,
+          html: `<div class="place-pin">${PLACE_ICONS_HTML[feature.properties.type] || getIconHtml(MapPin)}</div>`,
           iconSize: [26, 26]
         });
         return L.marker(latlng, { icon });
@@ -360,7 +511,13 @@ export default function Dashboard() {
       else level = "submicro";
     }
 
-    const data = await api(`/api/areas?level=${level}`);
+    let data;
+    try {
+      data = await api(`/api/areas?level=${level}`);
+    } catch (err) {
+      console.error("AQI Layer fetch failed:", err);
+      return;
+    }
     const activeMap = mapInstance.current;
     if (!activeMap) return;
 
@@ -459,7 +616,7 @@ export default function Dashboard() {
           }
           const tempIcon = L.divIcon({
             className: "",
-            html: `<div class="place-pin" style="border-color: #ec4899; box-shadow: 0 0 12px #ec4899;">📍</div>`,
+            html: `<div class="place-pin" style="border-color: var(--primary);">${getIconHtml(MapPin, "var(--primary)")}</div>`,
             iconSize: [26, 26]
           });
           selectionMarkerRef.current = L.marker(e.latlng, { icon: tempIcon }).addTo(activeMap);
@@ -620,6 +777,9 @@ export default function Dashboard() {
   };
 
   const handleZoomEnd = async () => {
+    if (mapInstance.current) {
+      setMapZoom(mapInstance.current.getZoom());
+    }
     if (activeModeRef.current !== "aqi" && activeModeRef.current !== "heatmap") return;
     await refreshAqiLayer();
   };
@@ -634,12 +794,16 @@ export default function Dashboard() {
       markerCluster.clearLayers();
       list.forEach(c => {
         if (c.status === "Moderation") return;
+        
+        if (complaintFilter === "pending" && c.status !== "Submitted" && c.status !== "Verified" && c.status !== "Assigned" && c.status !== "In Progress") return;
+        if (complaintFilter === "resolved" && c.status !== "Resolved") return;
+        if (complaintFilter === "critical" && c.severity < 3) return;
 
         const isEscalatedStr = c.escalated ? ` | <span style="color: #f43f5e; font-weight:700;">ESCALATED (No update > 30d)</span>` : "";
         const isDisputedStr = c.verification_status === "Disputed" ? ` | <span style="color: #f43f5e; font-weight:700;">DISPUTED RESOLUTION</span>` : "";
         let duplicateAlert = "";
         if (c.is_duplicate) {
-          duplicateAlert = `<br><span style="color: #fbbf24; font-size: 0.78rem; font-weight:600;">⚠️ Linked as duplicate of complaint #${c.duplicate_of.slice(0, 8)}</span>`;
+          duplicateAlert = `<br><span style="color: #fbbf24; font-size: 0.78rem; font-weight:600;"><span style="display:inline-block; vertical-align:middle; margin-right:4px;">${getIconHtml(AlertTriangle, "#fbbf24", 14)}</span> Linked as duplicate of complaint #${c.duplicate_of.slice(0, 8)}</span>`;
         }
 
         let routeText = `Routed Authority: ${c.authority} (${c.department})`;
@@ -650,25 +814,31 @@ export default function Dashboard() {
 
         const icon = L.divIcon({
           className: "",
-          html: `<div class="place-pin" style="border-color: ${c.status === 'Resolved' ? '#10b981' : '#f59e0b'}">${ISSUE_ICONS[c.issue_type] || "📍"}</div>`,
+          html: `<div class="place-pin" style="border-color: ${c.status === 'Resolved' ? 'var(--success)' : 'var(--warning)'}" title="${c.issue_type} - ${c.status}">${ISSUE_ICONS_HTML[c.issue_type] || getIconHtml(MapPin)}</div>`,
           iconSize: [26, 26]
         });
 
-        const marker = L.marker([c.latitude, c.longitude], { icon });
+        const marker = L.marker([c.latitude, c.longitude], { icon, complaintStatus: c.status });
         marker.bindPopup(`
-          <div style="font-family: sans-serif; color: #1e293b; max-width: 250px;">
-            <h4 style="margin: 0; font-size: 0.95rem; display: flex; justify-content: space-between; align-items: center;">
-              <span>${ISSUE_ICONS[c.issue_type] || "📍"} ${c.issue_type}</span>
-              <span style="font-size: 0.7rem; padding: 2px 6px; border-radius: 99px; background: #e2e8f0; color: #475569;">${c.status}</span>
-            </h4>
-            <p style="margin: 6px 0; font-size: 0.8rem;">${c.description}</p>
-            <div style="font-size: 0.74rem; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 6px; margin-top: 6px;">
-              ${routeText}
-              ${duplicateAlert}
-              <br><span style="font-size: 0.68rem; color: #94a3b8; display:block; margin-top:4px;">ID: ${c.complaint_id}</span>
+          <div style="background: rgba(18, 14, 26, 0.95); backdrop-filter: blur(16px); color: #e2e8f0; font-family: inherit; padding: 4px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); width: max-content; min-width: 220px; max-width: 280px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+              <h4 style="margin: 0; font-size: 0.9rem; color: #fff; display: flex; align-items: center; gap: 8px; font-weight: 600;">
+                <span style="color: var(--brand); display: flex; align-items: center;">${ISSUE_ICONS_HTML[c.issue_type] || getIconHtml(MapPin)}</span> 
+                ${c.issue_type}
+              </h4>
+              <span style="font-size: 0.65rem; padding: 3px 8px; border-radius: 99px; background: ${c.status === 'Resolved' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)'}; color: ${c.status === 'Resolved' ? '#34d399' : '#fbbf24'}; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; border: 1px solid ${c.status === 'Resolved' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'};">${c.status}</span>
+            </div>
+            <p style="margin: 0 0 12px 0; font-size: 0.8rem; color: #cbd5e1; line-height: 1.5;">${c.description}</p>
+            <div style="font-size: 0.75rem; color: #94a3b8; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
+              ${routeText ? `<div style="margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">📍 ${routeText}</div>` : ''}
+              ${duplicateAlert ? `<div style="margin-bottom: 4px; color: #fb7185;">${duplicateAlert}</div>` : ''}
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                <span style="font-size: 0.65rem; color: #64748b; font-family: monospace;">ID: ${c.complaint_id}</span>
+                <button onclick="document.dispatchEvent(new CustomEvent('inspectComplaint', {detail: '${c.complaint_id}'}))" style="background: transparent; border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; transition: all 0.2s;">Inspect</button>
+              </div>
             </div>
           </div>
-        `);
+        `, { className: 'dark-civic-popup', closeButton: false });
         markerCluster.addLayer(marker);
       });
     } else if (activeMode === "heatmap") {
@@ -723,7 +893,7 @@ export default function Dashboard() {
         if (selectionMarkerRef.current) map.removeLayer(selectionMarkerRef.current);
         const tempIcon = L.divIcon({
           className: "",
-          html: `<div class="place-pin" style="border-color: #f43f5e; box-shadow: 0 0 12px #f43f5e;">📍</div>`,
+          html: `<div class="place-pin" style="border-color: var(--critical);">${getIconHtml(MapPin, "var(--critical)")}</div>`,
           iconSize: [26, 26]
         });
         selectionMarkerRef.current = L.marker([lat, lng], { icon: tempIcon }).addTo(map);
@@ -818,11 +988,11 @@ export default function Dashboard() {
       setUploadedImage(null);
 
       if (response.status === "Moderation") {
-        alert("⚠️ Your complaint was routed to the Human Moderation Queue. Reason: Description flagged by AI NLP checks or trust score remains below threshold.");
+        alert("Your complaint was routed to the Human Moderation Queue. Reason: Description flagged by AI NLP checks or trust score remains below threshold.");
       } else if (response.is_duplicate) {
-        alert("⚠️ Similar issue reported recently in this area. AI flagged this complaint as duplicate and linked it to the existing ticket.");
+        alert("Similar issue reported recently in this area. AI flagged this complaint as duplicate and linked it to the existing ticket.");
       } else {
-        alert("✅ Complaint filed successfully. Assigned routing transparently logged.");
+        alert("Complaint filed successfully. Assigned routing transparently logged.");
       }
 
       await resolveAndRenderPlace(selectedLatlng.lat, selectedLatlng.lng);
@@ -837,19 +1007,19 @@ export default function Dashboard() {
   const handleVerifyOtp = () => {
     setUserVerifiedOtp(true);
     setUserTrustScore(prev => Math.min(100, prev + 10));
-    alert("✅ Mobile OTP verified successfully! Trust Score increased by 10.");
+    alert("Mobile OTP verified successfully! Trust Score increased by 10.");
   };
 
   const handleVerifyAadhaar = () => {
     setUserVerifiedAadhaar(true);
     setUserTrustScore(prev => Math.min(100, prev + 30));
-    alert("✅ Aadhaar identity verified successfully! Trust Score increased by 30.");
+    alert("Aadhaar identity verified successfully! Trust Score increased by 30.");
   };
 
   const handleFlagComplaint = async (complaintId) => {
     try {
       const res = await api(`/api/complaints/${encodeURIComponent(complaintId)}/flag`, { method: "POST" });
-      alert(`🚩 Flagged. Current flags: ${res.flags_count}. Status: ${res.status}`);
+      alert(`Flagged. Current flags: ${res.flags_count}. Status: ${res.status}`);
       if (selectedLatlng) {
         await resolveAndRenderPlace(selectedLatlng.lat, selectedLatlng.lng);
       }
@@ -927,6 +1097,8 @@ export default function Dashboard() {
   const selectSearchResult = async (feature) => {
     setSearchQuery("");
     setSearchResults([]);
+    setShowSearchModal(false);
+    setActiveTab("map");
     const map = mapInstance.current;
     if (!map) return;
 
@@ -948,6 +1120,20 @@ export default function Dashboard() {
     return "#f43f5e"; // critical - rose
   };
 
+  // Citizen Dashboard Derivations
+  const totalCitizenReports = myReports.length;
+  const resolvedCitizenReports = myReports.filter(c => c.status === "Resolved" || c.status === "Closed").length;
+  const inProgressCitizenReports = myReports.filter(c => c.status === "Assigned" || c.status === "In Progress").length;
+  const awaitingConfirmationReports = myReports.filter(c => c.status === "Resolved").length;
+  const civicImpactScore = resolvedCitizenReports;
+
+  const filteredMyReports = myReports.filter(c => {
+    if (citizenReportFilter === "All") return true;
+    if (citizenReportFilter === "Resolved") return c.status === "Resolved" || c.status === "Closed";
+    if (citizenReportFilter === "Pending") return c.status !== "Resolved" && c.status !== "Closed";
+    return true;
+  });
+
   return (
     <>
       <header className="navbar">
@@ -959,71 +1145,264 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="search-wrap">
-          <input
-            id="search-input"
-            type="text"
-            placeholder="Search road, park, home, shop, landmark..."
-            value={searchQuery}
-            onChange={handleSearch}
-            autoComplete="off"
-          />
-          {searchResults.length > 0 && (
-            <ul className="search-results visible">
-              {searchResults.map((f, i) => (
-                <li key={i} onClick={() => selectSearchResult(f)}>
-                  <strong>{f.properties.name}</strong>
-                  <small>{f.properties.type} - {f.properties.address}</small>
-                </li>
-              ))}
-            </ul>
+        <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
+          {activeTab === "map" && (
+            <div className="mode-tabs flex items-center" style={{ scale: "0.95" }}>
+              <button className={`mode-tab ${activeMode === "explore" ? "active" : ""}`} onClick={() => setActiveMode("explore")}>Complaints</button>
+              <button className={`mode-tab ${activeMode === "aqi" ? "active" : ""}`} onClick={() => setActiveMode("aqi")}>AQI</button>
+              <button className={`mode-tab ${activeMode === "heatmap" ? "active" : ""}`} onClick={() => setActiveMode("heatmap")}>Heatmap</button>
+              
+              <div className="w-px h-6 bg-slate-700/50 mx-1"></div>
+              
+              <button 
+                className={`flex items-center justify-center rounded-full w-9 h-9 mx-1 mr-2 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors ${isLocating ? "text-brand" : ""}`} 
+                onClick={handleLocateMe} 
+                title="Locate Me"
+              >
+                {isLocating ? <span className="spinner"></span> : <Crosshair size={18} />}
+              </button>
+            </div>
           )}
         </div>
 
-        <nav className="nav-links">
-          <button className={`nav-btn ${activeTab === "map" ? "active" : ""}`} onClick={() => setActiveTab("map")}>Map Explorer</button>
-          <button className={`nav-btn ${activeTab === "citizen" ? "active" : ""}`} onClick={() => setActiveTab("citizen")}>Citizen Dashboard</button>
-          <button className={`nav-btn ${activeTab === "governance" ? "active" : ""}`} onClick={() => setActiveTab("governance")}>Governance Console</button>
-        </nav>
-      </header>
+        {/* Mobile Navigation Drawer & Backdrop */}
+        <div ref={navMenuRef}>
+          {/* Backdrop */}
+          <div 
+            className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${isNavMenuOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+            onClick={() => setIsNavMenuOpen(false)}
+          ></div>
 
-      <main className={`layout tab-${activeTab}`}>
-        <section className="map-panel">
-          <div className="map-mode-control">
-            <h4>Map Visual Modes</h4>
-            <div className="mode-buttons">
-              <button className={`mode-btn ${activeMode === "explore" ? "active" : ""}`} onClick={() => setActiveMode("explore")}>🛣️ Explore & Rate</button>
-              <button className={`mode-btn ${activeMode === "aqi" ? "active" : ""}`} onClick={() => setActiveMode("aqi")}>📊 Civic AQI Layers</button>
-              <button className={`mode-btn ${activeMode === "heatmap" ? "active" : ""}`} onClick={() => setActiveMode("heatmap")}>🔥 Complaint Heatmap</button>
+          {/* Drawer */}
+          <div 
+            className={`fixed top-0 right-0 bottom-0 w-[280px] z-50 flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.33,1,0.68,1)] transform ${isNavMenuOpen ? "translate-x-0 shadow-2xl" : "translate-x-full"}`}
+            style={{ background: "var(--panel)", borderLeft: "1px solid var(--line)" }}
+          >
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between p-5 border-b border-white/5">
+              <h2 className="text-white font-semibold tracking-wide text-lg">Menu</h2>
+              <button 
+                onClick={() => setIsNavMenuOpen(false)}
+                className="p-2 -mr-2 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <X size={22} />
+              </button>
             </div>
-            
-            <div className="theme-toggle-container" style={{ marginTop: "12px", borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: "8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: "0.8rem", color: "rgba(255, 255, 255, 0.7)", fontWeight: "500" }}>Map Theme:</span>
-              <div className="mode-buttons" style={{ gap: "4px" }}>
+
+            <div className="flex-1 overflow-y-auto py-2">
+              {/* Main Navigation */}
+              <div className="flex flex-col py-3 px-3 gap-2">
+                <span className="px-2 py-1 text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Main</span>
+                
                 <button 
-                  className={`mode-btn ${mapTheme === "dark" ? "active" : ""}`} 
-                  onClick={() => setMapTheme("dark")}
-                  style={{ fontSize: "0.72rem", padding: "4px 8px" }}
+                  className="text-left px-4 py-3.5 rounded-xl text-[15px] font-medium transition-all duration-200 flex items-center gap-4 border active:scale-[0.98]"
+                  style={{
+                    background: activeTab === "map" ? "rgba(139, 92, 246, 0.12)" : "rgba(255, 255, 255, 0.02)",
+                    borderColor: activeTab === "map" ? "rgba(139, 92, 246, 0.3)" : "rgba(255, 255, 255, 0.06)",
+                    boxShadow: activeTab === "map" ? "0 0 12px rgba(139, 92, 246, 0.15)" : "none",
+                    color: activeTab === "map" ? "var(--brand)" : "#cbd5e1"
+                  }}
+                  onMouseEnter={(e) => { if (activeTab !== "map") { e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)"; e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.1)"; } }}
+                  onMouseLeave={(e) => { if (activeTab !== "map") { e.currentTarget.style.background = "rgba(255, 255, 255, 0.02)"; e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.06)"; } }}
+                  onClick={() => { setActiveTab("map"); setIsNavMenuOpen(false); }}
                 >
-                  🌑 Dark Matter
+                  <MapIcon size={18} className={activeTab === "map" ? "text-brand" : "text-slate-400"} />
+                  Map Explorer
                 </button>
+                
                 <button 
-                  className={`mode-btn ${mapTheme === "street" ? "active" : ""}`} 
-                  onClick={() => setMapTheme("street")}
-                  style={{ fontSize: "0.72rem", padding: "4px 8px" }}
+                  className="text-left px-4 py-3.5 rounded-xl text-[15px] font-medium transition-all duration-200 flex items-center gap-4 border active:scale-[0.98]"
+                  style={{
+                    background: activeTab === "citizen" ? "rgba(139, 92, 246, 0.12)" : "rgba(255, 255, 255, 0.02)",
+                    borderColor: activeTab === "citizen" ? "rgba(139, 92, 246, 0.3)" : "rgba(255, 255, 255, 0.06)",
+                    boxShadow: activeTab === "citizen" ? "0 0 12px rgba(139, 92, 246, 0.15)" : "none",
+                    color: activeTab === "citizen" ? "var(--brand)" : "#cbd5e1"
+                  }}
+                  onMouseEnter={(e) => { if (activeTab !== "citizen") { e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)"; e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.1)"; } }}
+                  onMouseLeave={(e) => { if (activeTab !== "citizen") { e.currentTarget.style.background = "rgba(255, 255, 255, 0.02)"; e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.06)"; } }}
+                  onClick={() => { setActiveTab("citizen"); setIsNavMenuOpen(false); }}
                 >
-                  🗺️ Street View
+                  <LayoutDashboard size={18} className={activeTab === "citizen" ? "text-brand" : "text-slate-400"} />
+                  Citizen Dashboard
                 </button>
+                
+                <button 
+                  className="text-left px-4 py-3.5 rounded-xl text-[15px] font-medium transition-all duration-200 flex items-center gap-4 border active:scale-[0.98]"
+                  style={{
+                    background: activeTab === "governance" ? "rgba(139, 92, 246, 0.12)" : "rgba(255, 255, 255, 0.02)",
+                    borderColor: activeTab === "governance" ? "rgba(139, 92, 246, 0.3)" : "rgba(255, 255, 255, 0.06)",
+                    boxShadow: activeTab === "governance" ? "0 0 12px rgba(139, 92, 246, 0.15)" : "none",
+                    color: activeTab === "governance" ? "var(--brand)" : "#cbd5e1"
+                  }}
+                  onMouseEnter={(e) => { if (activeTab !== "governance") { e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)"; e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.1)"; } }}
+                  onMouseLeave={(e) => { if (activeTab !== "governance") { e.currentTarget.style.background = "rgba(255, 255, 255, 0.02)"; e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.06)"; } }}
+                  onClick={() => { setActiveTab("governance"); setIsNavMenuOpen(false); }}
+                >
+                  <Shield size={18} className={activeTab === "governance" ? "text-brand" : "text-slate-400"} />
+                  Governance Console
+                </button>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-col py-3 px-3 gap-2">
+                <span className="px-2 py-1 text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Report</span>
+                
+                <button 
+                  className="w-full flex items-center gap-3 text-[15px] font-semibold transition-all duration-200 rounded-xl border active:scale-[0.98]"
+                  style={{ 
+                    padding: "14px 16px", 
+                    background: "rgba(139, 92, 246, 0.15)", 
+                    color: "var(--brand)", 
+                    borderColor: "rgba(139, 92, 246, 0.4)",
+                    boxShadow: "0 0 16px rgba(139, 92, 246, 0.2), inset 0 1px 0 rgba(255,255,255,0.1)"
+                  }} 
+                  onClick={() => { setIsReportModalOpen(true); setIsNavMenuOpen(false); }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(139, 92, 246, 0.25)"; e.currentTarget.style.boxShadow = "0 0 20px rgba(139, 92, 246, 0.3), inset 0 1px 0 rgba(255,255,255,0.1)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(139, 92, 246, 0.15)"; e.currentTarget.style.boxShadow = "0 0 16px rgba(139, 92, 246, 0.2), inset 0 1px 0 rgba(255,255,255,0.1)"; }}
+                >
+                  <AlertTriangle size={18} /> 
+                  <span>Report an Issue</span>
+                </button>
+              </div>
+
+              {/* Utilities */}
+              <div className="flex flex-col py-3 px-3 gap-2">
+                <span className="px-2 py-1 text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Utilities</span>
+                
+                <button 
+                  className="w-full flex items-center justify-between text-[15px] font-medium transition-all duration-200 rounded-xl border active:scale-[0.98]"
+                  style={{
+                    padding: "12px 16px",
+                    background: isStatsExpanded ? "rgba(255, 255, 255, 0.06)" : "rgba(255, 255, 255, 0.02)",
+                    borderColor: isStatsExpanded ? "rgba(255, 255, 255, 0.15)" : "rgba(255, 255, 255, 0.06)",
+                    color: "#cbd5e1"
+                  }}
+                  onMouseEnter={(e) => { if (!isStatsExpanded) { e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)"; e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.1)"; } }}
+                  onMouseLeave={(e) => { if (!isStatsExpanded) { e.currentTarget.style.background = "rgba(255, 255, 255, 0.02)"; e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.06)"; } }}
+                  onClick={() => setIsStatsExpanded(!isStatsExpanded)}
+                >
+                  <div className="flex items-center gap-4">
+                    <Activity size={18} className={isStatsExpanded ? "text-white" : "text-slate-400"} />
+                    <div className="flex flex-col items-start">
+                      <span className={isStatsExpanded ? "text-white" : ""}>Map Statistics</span>
+                      {!isStatsExpanded && (
+                        <span className="text-[11px] text-slate-500 font-normal mt-0.5">{summary.total} reports · {summary.pending} pending</span>
+                      )}
+                    </div>
+                  </div>
+                  {isStatsExpanded ? <ChevronUp size={16} className="text-white" /> : <ChevronDown size={16} className="text-slate-500" />}
+                </button>
+                
+                {isStatsExpanded && (
+                  <div className="mt-1 p-2 grid grid-cols-2 gap-2 rounded-xl border" style={{ background: "rgba(0,0,0,0.2)", borderColor: "rgba(255,255,255,0.05)" }}>
+                    <button onClick={() => setComplaintFilter("all")} className={`flex flex-col text-left p-3.5 rounded-lg transition-all duration-200 border active:scale-[0.95]`}
+                      style={{
+                        background: complaintFilter === "all" ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.02)",
+                        borderColor: complaintFilter === "all" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.05)"
+                      }}
+                      onMouseEnter={(e) => { if (complaintFilter !== "all") { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; } }}
+                      onMouseLeave={(e) => { if (complaintFilter !== "all") { e.currentTarget.style.background = "rgba(255,255,255,0.02)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.05)"; } }}
+                    >
+                      <span className="text-2xl font-bold text-white leading-none">{summary.total}</span>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-2">Total</span>
+                    </button>
+                    <button onClick={() => setComplaintFilter("pending")} className={`flex flex-col text-left p-3.5 rounded-lg transition-all duration-200 border active:scale-[0.95]`}
+                      style={{
+                        background: complaintFilter === "pending" ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.02)",
+                        borderColor: complaintFilter === "pending" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.05)"
+                      }}
+                      onMouseEnter={(e) => { if (complaintFilter !== "pending") { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; } }}
+                      onMouseLeave={(e) => { if (complaintFilter !== "pending") { e.currentTarget.style.background = "rgba(255,255,255,0.02)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.05)"; } }}
+                    >
+                      <span className="text-2xl font-bold text-white leading-none">{summary.pending}</span>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-2">Pending</span>
+                    </button>
+                    <button onClick={() => setComplaintFilter("resolved")} className={`flex flex-col text-left p-3.5 rounded-lg transition-all duration-200 border active:scale-[0.95]`}
+                      style={{
+                        background: complaintFilter === "resolved" ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.02)",
+                        borderColor: complaintFilter === "resolved" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.05)"
+                      }}
+                      onMouseEnter={(e) => { if (complaintFilter !== "resolved") { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; } }}
+                      onMouseLeave={(e) => { if (complaintFilter !== "resolved") { e.currentTarget.style.background = "rgba(255,255,255,0.02)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.05)"; } }}
+                    >
+                      <span className="text-2xl font-bold text-white leading-none">{summary.resolved}</span>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-2">Resolved</span>
+                    </button>
+                    <button onClick={() => setComplaintFilter("critical")} className={`flex flex-col text-left p-3.5 rounded-lg transition-all duration-200 border active:scale-[0.95]`}
+                      style={{
+                        background: complaintFilter === "critical" ? "rgba(139, 92, 246, 0.15)" : "rgba(255,255,255,0.02)",
+                        borderColor: complaintFilter === "critical" ? "rgba(139, 92, 246, 0.4)" : "rgba(255,255,255,0.05)",
+                        boxShadow: complaintFilter === "critical" ? "0 0 12px rgba(139, 92, 246, 0.15)" : "none"
+                      }}
+                      onMouseEnter={(e) => { if (complaintFilter !== "critical") { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; } }}
+                      onMouseLeave={(e) => { if (complaintFilter !== "critical") { e.currentTarget.style.background = "rgba(255,255,255,0.02)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.05)"; } }}
+                    >
+                      <span className="text-2xl font-bold text-brand leading-none">{summary.highPriority}</span>
+                      <span className="text-[10px] text-brand/70 font-bold uppercase tracking-wider mt-2">Critical</span>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
+        </div>
 
-          <div className="stats-row">
-            <article><strong>{summary.total}</strong><span>Total Ledger</span></article>
-            <article><strong>{summary.pending}</strong><span>Pending</span></article>
-            <article><strong>{summary.resolved}</strong><span>Resolved</span></article>
-            <article><strong>{summary.highPriority}</strong><span>High/Critical</span></article>
+        {/* Floating Hamburger Button (in Header) */}
+        <div className="flex items-center ml-2 relative z-50">
+          <button 
+            onClick={() => setIsNavMenuOpen(!isNavMenuOpen)}
+            className={`flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 ${isNavMenuOpen ? "opacity-0 pointer-events-none scale-90" : "opacity-100 scale-100 hover:text-white"}`}
+            style={{ 
+              background: "var(--panel)", 
+              border: "1px solid var(--line)", 
+              color: "var(--muted)", 
+              boxShadow: "0 4px 12px rgba(0,0,0,0.3)" 
+            }}
+          >
+            <Menu size={20} />
+          </button>
+        </div>
+      </header>
+
+      <main className={`layout tab-${activeTab} ${!selectedPlace && activeTab === 'map' ? 'map-full-focus' : ''}`}>
+        <section className="map-panel">
+          
+          <div className="map-top-bar" style={{ position: "absolute", top: "16px", left: "16px", zIndex: 800, display: "flex", gap: "12px", alignItems: "center" }}>
+            <div className="breadcrumb-container" style={{ background: "rgba(9, 7, 15, 0.9)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", padding: "8px 14px", color: "var(--muted)", fontSize: "0.8rem", fontWeight: 600, display: "flex", gap: "8px", alignItems: "center", boxShadow: "0 4px 12px rgba(0,0,0,0.5)" }}>
+              <span className="cursor-pointer hover:text-white transition-colors">India</span> <ChevronRight size={12} className="opacity-50" /> 
+              <span className="cursor-pointer hover:text-white transition-colors">Uttar Pradesh</span> 
+              {mapZoom > 6 && <><ChevronRight size={12} className="opacity-50" /> <span className="cursor-pointer hover:text-white transition-colors">Kanpur Nagar</span></>}
+              {mapZoom > 11 && <><ChevronRight size={12} className="opacity-50" /> <span className="cursor-pointer hover:text-white transition-colors">Ward</span></>}
+              {mapZoom > 13 && <><ChevronRight size={12} className="opacity-50" /> <span className="text-white">Locality</span></>}
+            </div>
+
+            <button className="search-trigger-btn" onClick={() => setShowSearchModal(true)} style={{ width: "280px", background: "rgba(9, 7, 15, 0.9)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 4px 12px rgba(0,0,0,0.5)", borderRadius: "8px", height: "100%" }}>
+              <Search size={14} className="text-slate-400" />
+              <span>Search location or issue...</span>
+              <kbd className="ml-auto hidden md:inline-flex bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded text-xs"> / </kbd>
+            </button>
           </div>
+
+          {showInsight && (
+            <div className="insight-panel" style={{ position: "absolute", top: "64px", left: "16px", zIndex: 800, width: "320px", background: "rgba(18,14,26,0.85)", backdropFilter: "blur(20px)", border: "1px solid var(--brand)", borderRadius: "12px", padding: "16px", boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }}>
+              <div className="flex justify-between items-start mb-3">
+                <h4 className="flex items-center gap-2 text-brand font-bold text-sm tracking-wide uppercase"><Lightbulb size={16} className="text-brand" fill="currentColor" /> Nirikshan Insight</h4>
+                <button onClick={() => setShowInsight(false)} className="text-slate-400 hover:text-white"><X size={16} /></button>
+              </div>
+              <p className="text-sm text-slate-200 leading-relaxed mb-4">
+                {activeMode === "explore" ? "Complaint density is highest around the central corridor. Road-related complaints account for most unresolved reports." 
+                 : activeMode === "aqi" ? "Most wards are currently in the acceptable range. Two areas show elevated AQI compared with the surrounding wards." 
+                 : `Kanpur Nagar has 18% more road complaints than last month. 3 critical complaints have remained unresolved for more than ${heatmapPeriod} days.`}
+              </p>
+              <div className="flex gap-2">
+                <button className="flex-1 btn-primary text-xs py-1.5" onClick={() => { setShowInsight(false); setActiveTab("governance"); }}>Investigate</button>
+                <button className="flex-1 btn-secondary text-xs py-1.5" onClick={() => setShowInsight(false)}>Dismiss</button>
+              </div>
+            </div>
+          )}
+
+
+
 
           {activeMode === "aqi" && (
             <div className="legend-card" id="map-legend">
@@ -1039,133 +1418,76 @@ export default function Dashboard() {
           )}
 
           <div ref={mapRef} id="map"></div>
-
-          <button 
-            className={`btn-locate ${isLocating ? "active" : ""}`} 
-            onClick={handleLocateMe}
-            title="Show My Location"
-          >
-            {isLocating ? (
-              <div className="loader-locate"></div>
-            ) : (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="7"></circle>
-                <line x1="12" y1="1" x2="12" y2="5"></line>
-                <line x1="12" y1="19" x2="12" y2="23"></line>
-                <line x1="1" y1="12" x2="5" y2="12"></line>
-                <line x1="19" y1="12" x2="23" y2="12"></line>
-              </svg>
-            )}
-          </button>
         </section>
 
-        <aside className="sheet">
-          {activeTab === "map" && (
-            <div id="view-map" className="panel-view active">
-              <div className="card place-card" id="place-summary-card">
-                <p id="place-type" className="place-type">
-                  {selectedPlace ? `${selectedPlace.place.properties.type} ${selectedPlace.is_virtual ? "(pin drop)" : ""}` : "Select a place"}
-                </p>
-                <h2 id="place-name">{selectedPlace ? selectedPlace.place.properties.name : "No Location Selected"}</h2>
-                <p id="place-address" className="place-address">
-                  {selectedPlace ? (selectedPlace.place.properties.address || "No address metadata") : "Click on any road, park, landmark, or pin a custom point on the map to rate quality or submit complaints."}
-                </p>
-
-                {selectedPlace && (
-                  <>
-                    <div className="metric-grid">
-                      <div><label>Quality Rating</label><strong>{selectedPlace.metrics.avg_rating ? `${selectedPlace.metrics.avg_rating}/5` : "No ratings"}</strong></div>
-                      <div><label>Reviews</label><strong>{selectedPlace.metrics.review_count}</strong></div>
-                      <div><label>Complaints</label><strong>{selectedPlace.metrics.complaint_count}</strong></div>
-                      <div><label>Pending</label><strong>{selectedPlace.metrics.pending_complaints}</strong></div>
-                    </div>
-                    <p id="place-jurisdiction" className="place-jurisdiction">
-                      Jurisdiction: {selectedPlace.area ? `${selectedPlace.area.name}, ${selectedPlace.area.city} | Auth: ${selectedPlace.area.authority}` : "Outside mapped region"}
+        {(activeTab !== "map" || selectedPlace) && (
+          <aside className="sheet">
+            {activeTab === "map" && selectedPlace && (
+              <div id="view-map" className="panel-view active">
+                  <div className="card place-card" id="place-summary-card" style={{ position: "relative" }}>
+                    <button 
+                      onClick={() => setSelectedPlace(null)} 
+                      style={{ position: "absolute", top: "12px", right: "12px", background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: "4px" }}
+                      title="Close"
+                    >
+                      <X size={16} />
+                    </button>
+                    <p id="place-type" className="place-type" style={{ paddingRight: "24px" }}>
+                      {selectedPlace.place.properties.type} {selectedPlace.is_virtual ? "(pin drop)" : ""}
                     </p>
-                  </>
-                )}
-              </div>
-
-              {selectedPlace && (
-                <>
-                  <div className="card form-card" id="rating-submission-card">
-                    <h3>Rate Quality & Review</h3>
-                    <form id="review-form" onSubmit={onSubmitReview}>
-                      <div className="form-group">
-                        <label>Quality Grade
-                          <select name="rating" required>
-                            <option value="5">⭐⭐⭐⭐⭐ Excellent (Well-maintained)</option>
-                            <option value="4">⭐⭐⭐⭐ Good (Acceptable)</option>
-                            <option value="3">⭐⭐⭐ Moderate</option>
-                            <option value="2">⭐⭐ Poor</option>
-                            <option value="1">⭐ Critical (Damaged/Broken)</option>
-                          </select>
-                        </label>
-                      </div>
-                      <div className="form-group">
-                        <label>Feedback Comment
-                          <textarea name="comment" rows="3" maxLength="260" placeholder="E.g. Cleanliness, water logging, lighting, road condition..." required></textarea>
-                        </label>
-                      </div>
-                      <button type="submit" className="btn-primary">Post Review</button>
-                    </form>
-                  </div>
-
-                  <div className="card form-card" id="complaint-submission-card">
-                    <h3>Submit New Civic Complaint</h3>
-                    <div className="alert-info">
-                      🛡️ GPS and Timestamp attached. EXIF metadata will be stripped and faces automatically blurred.
+                    <h2 id="place-name" style={{ paddingRight: "24px" }}>{selectedPlace.place.properties.name}</h2>
+                    
+                    <div className="metric-grid" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+                      <div><label>Score</label><strong>{selectedPlace.metrics.avg_rating ? `${(selectedPlace.metrics.avg_rating * 20).toFixed(0)}` : "NA"}</strong></div>
+                      <div><label>Reports</label><strong>{selectedPlace.metrics.complaint_count}</strong></div>
+                      <div><label>Pending</label><strong>{selectedPlace.metrics.pending_complaints}</strong></div>
+                      <div><label>Resolved</label><strong style={{ color: "var(--green)" }}>{selectedPlace.metrics.complaint_count - selectedPlace.metrics.pending_complaints}</strong></div>
                     </div>
                     
-                    <form id="complaint-form" onSubmit={onSubmitComplaint}>
-                      <div className="form-group">
-                        <label>Issue Classification
-                          <select name="issue_type" id="complaint-issue-type" required>
-                            <option value="Pothole">Road / Pothole (KNN & KDA)</option>
-                            <option value="Streetlight">Streetlight Failure (KNN & KDA)</option>
-                            <option value="Water">Water Supply Defect (Jal Kal & KNN)</option>
-                            <option value="Sewer">Drainage / Sewer Overflow (Jal Kal & KNN)</option>
-                            <option value="Garbage">Sanitation / Garbage Dump (KNN)</option>
-                            <option value="Safety">Public Safety Hazard (KNN)</option>
-                            <option value="Encroachment">Public Space Encroachment (KDA)</option>
-                          </select>
-                        </label>
+                    {selectedPlace.place.properties.type !== "state" && (
+                      <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--line)" }}>
+                        <p style={{ fontSize: "0.75rem", color: "var(--muted)", marginBottom: "8px", textTransform: "uppercase", fontWeight: "600" }}>Quality Breakdown</p>
+                        <div style={{ display: "flex", gap: "12px", fontSize: "0.8rem", flexWrap: "wrap" }}>
+                          <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><MapIcon size={14} color="var(--primary)" /> Road: <strong style={{ color: "#fff" }}>Good</strong></span>
+                          <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><Trash2 size={14} color="var(--critical)" /> Cleanliness: <strong style={{ color: "#fff" }}>Poor</strong></span>
+                          <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><Lightbulb size={14} color="var(--warning)" /> Lighting: <strong style={{ color: "#fff" }}>Fair</strong></span>
+                          <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><Droplets size={14} color="var(--info)" /> Water: <strong style={{ color: "#fff" }}>Good</strong></span>
+                        </div>
                       </div>
-                      
-                      <div className="form-group">
-                        <label>Severity Level
-                          <select name="severity" required>
-                            <option value="1">Low - Minor issue, needs repair</option>
-                            <option value="2">Medium - Obstructive, needs attention</option>
-                            <option value="3">High - Safety concern or disruption</option>
-                            <option value="5">Critical - Severe hazard / complete failure</option>
-                          </select>
-                        </label>
-                      </div>
-                      
-                      <div className="form-group">
-                        <label>Description of Issue
-                          <textarea name="description" rows="3" maxLength="300" placeholder="Describe the problem and nearest landmarks..." required></textarea>
-                        </label>
-                      </div>
-
-                      <div className="form-group">
-                        <label>Photographic Evidence
-                          <div className="photo-upload-simulator">
-                            {uploadedImage && (
-                              <div className="uploaded-image-preview" id="image-preview-container">
-                                <img src={uploadedImage} id="image-preview" alt="Civic Issue Preview" />
-                                <span className="preview-badge">🛡️ Face Blurred</span>
-                              </div>
-                            )}
-                            <button type="button" onClick={handlePhotoUploadSimulation} className="btn-secondary">📸 Select Issue Photo</button>
-                          </div>
-                        </label>
-                      </div>
-
-                      <button type="submit" className="btn-primary">File Complaint</button>
-                    </form>
+                    )}
                   </div>
+
+                  {!isReviewFormOpen ? (
+                    <button className="btn-secondary" style={{ width: "100%", marginBottom: "14px", padding: "14px", border: "1px dashed rgba(255,255,255,0.15)" }} onClick={() => setIsReviewFormOpen(true)}>
+                      <Star size={16} /> Rate This Place
+                    </button>
+                  ) : (
+                    <div className="card form-card" id="rating-submission-card" style={{ marginBottom: "14px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+                        <h3 style={{ margin: 0 }}>Rate Quality & Review</h3>
+                        <button onClick={() => setIsReviewFormOpen(false)} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: "1.2rem", padding: "0 8px" }}>×</button>
+                      </div>
+                      <form id="review-form" onSubmit={onSubmitReview}>
+                        <div className="form-group">
+                          <label>Quality Grade
+                            <select name="rating" required>
+                              <option value="5">★★★★★ Excellent (Well-maintained)</option>
+                              <option value="4">★★★★☆ Good (Acceptable)</option>
+                              <option value="3">★★★☆☆ Moderate</option>
+                              <option value="2">★★☆☆☆ Poor</option>
+                              <option value="1">★☆☆☆☆ Critical (Damaged/Broken)</option>
+                            </select>
+                          </label>
+                        </div>
+                        <div className="form-group">
+                          <label>Feedback Comment
+                            <textarea name="comment" rows="2" maxLength="260" placeholder="E.g. Cleanliness, water logging, lighting, road condition..." required></textarea>
+                          </label>
+                        </div>
+                        <button type="submit" className="btn-primary">Post Review</button>
+                      </form>
+                    </div>
+                  )}
 
                   <div className="card list-card" id="place-reviews-list-card">
                     <h3>Recent Location Reviews</h3>
@@ -1173,7 +1495,7 @@ export default function Dashboard() {
                       {reviews.length === 0 ? (
                         <li className="muted text-center py-3">No reviews registered for this place yet.</li>
                       ) : (
-                        reviews.slice(0, 5).map((r, i) => (
+                        reviews.slice(0, 3).map((r, i) => (
                           <li key={i}>
                             <strong>
                               <span>{"★".repeat(r.rating) + "☆".repeat(5 - r.rating)}</span>
@@ -1187,183 +1509,538 @@ export default function Dashboard() {
                   </div>
 
                   <div className="card list-card" id="place-complaints-list-card">
-                    <h3>Location Complaints Ledger</h3>
+                    <h3>Recent Complaints</h3>
                     <ul id="complaint-list" className="stack-list">
                       {placeComplaints.length === 0 ? (
                         <li className="muted text-center py-3">No complaints reported for this place yet.</li>
                       ) : (
-                        placeComplaints.slice(0, 5).map((c, i) => (
+                        placeComplaints.slice(0, 3).map((c, i) => (
                           <li key={i} className={c.escalated ? "escalated-pulse" : ""}>
                             <strong>
-                              <span>{ISSUE_ICONS[c.issue_type] || "📍"} {c.issue_type}</span>
+                              <span><span style={{display: 'inline-flex', verticalAlign: 'middle', marginRight: '6px'}}>{ISSUE_ICONS[c.issue_type] || <MapPin size={16} />}</span> {c.issue_type}</span>
                               <span className={`badge-status ${c.status.toLowerCase().replace(" ", "")}`}>{c.status}</span>
                             </strong>
                             <p>{c.description}</p>
-                            <p className="text-[0.72rem] text-slate-400 flex justify-between mt-2">
-                              <span>Dept: {c.department} ({c.authority_id})</span>
-                              <span>Score at Post: {c.user_trust_score}</span>
-                            </p>
-                            {c.verification_status === "Disputed" && <span className="disputed-flag">⚠️ Citizen Disputed</span>}
-                            {c.disputed_jurisdiction && <span className="disputed-flag text-[#60a5fa] border-[rgba(96,165,250,0.2)] bg-[rgba(96,165,250,0.1)]">🌐 Overlapping Jurisdiction (Multi-Routed)</span>}
-                            <div className="mt-2 flex gap-1 justify-end">
-                              <button onClick={() => handleFlagComplaint(c.complaint_id)} className="status-action btn-secondary py-1 px-2 text-[0.7rem] w-auto mt-0">🚩 Flag Spam ({c.flags_count || 0})</button>
-                            </div>
                           </li>
                         ))
                       )}
                     </ul>
                   </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {activeTab === "citizen" && (
-            <div id="view-citizen" className="panel-view active">
-              <div className="card profile-card">
-                <div className="profile-header">
-                  <div className="avatar">👤</div>
-                  <div>
-                    <h3>Citizen Account</h3>
-                    <p>Demo User Profile</p>
+              </div>
+            )}
+            {/* Report Issue Modal */}
+            {isReportModalOpen && (
+              <div className="report-modal-overlay" onClick={(e) => { if (e.target.className === 'report-modal-overlay') setIsReportModalOpen(false) }}>
+                <div className="card form-card report-modal-content">
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+                    <h3 style={{ margin: 0 }}>Submit New Civic Complaint</h3>
+                    <button onClick={() => setIsReportModalOpen(false)} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: "1.4rem", padding: "0 8px" }}>×</button>
                   </div>
-                </div>
-                
-                <div className="trust-score-widget">
-                  <div className="score-header">
-                    <span>Identity Verification Status</span>
-                    <strong id="citizen-trust-score">Trust Score: {userTrustScore}/100</strong>
+                  <div className="alert-info" style={{ display: "flex", alignItems: "center" }}>
+                    <ShieldCheck size={16} color="var(--success)" style={{ marginRight: "8px" }} /> GPS and Timestamp attached. EXIF metadata will be stripped and faces automatically blurred.
                   </div>
                   
-                  <div className="progress-bar-bg">
-                    <div className="progress-bar-fill" style={{ width: `${userTrustScore}%` }}></div>
-                  </div>
+                  <form id="complaint-form" onSubmit={(e) => { onSubmitComplaint(e); setIsReportModalOpen(false); }}>
+                    <div className="form-group">
+                      <label>Issue Classification
+                        <select name="issue_type" id="complaint-issue-type" required>
+                          <option value="Pothole">Road / Pothole (KNN & KDA)</option>
+                          <option value="Streetlight">Streetlight Failure (KNN & KDA)</option>
+                          <option value="Water">Water Supply Defect (Jal Kal & KNN)</option>
+                          <option value="Sewer">Drainage / Sewer Overflow (Jal Kal & KNN)</option>
+                          <option value="Garbage">Sanitation / Garbage Dump (KNN)</option>
+                          <option value="Safety">Public Safety Hazard (KNN)</option>
+                          <option value="Encroachment">Public Space Encroachment (KDA)</option>
+                        </select>
+                      </label>
+                    </div>
+                    
+                    <div className="form-group">
+                      <label>Severity Level
+                        <select name="severity" required>
+                          <option value="1">Low - Minor issue, needs repair</option>
+                          <option value="2">Medium - Obstructive, needs attention</option>
+                          <option value="3">High - Safety concern or disruption</option>
+                          <option value="5">Critical - Severe hazard / complete failure</option>
+                        </select>
+                      </label>
+                    </div>
+                    
+                    <div className="form-group">
+                      <label>Description of Issue
+                        <textarea name="description" rows="3" maxLength="300" placeholder="Describe the problem and nearest landmarks..." required></textarea>
+                      </label>
+                    </div>
 
-                  <div className="trust-status-flags">
-                    <span className={`status-chip ${userVerifiedOtp ? "verified" : "unverified"}`}>
-                      {userVerifiedOtp ? "📱 OTP Verified" : "📱 OTP Unverified"}
-                    </span>
-                    <span className={`status-chip ${userVerifiedAadhaar ? "verified" : "unverified"}`}>
-                      {userVerifiedAadhaar ? "🆔 Aadhaar Verified" : "🆔 Aadhaar Unverified"}
-                    </span>
-                  </div>
+                    <div className="form-group">
+                      <label>Photographic Evidence
+                        <div className="photo-upload-simulator">
+                          {uploadedImage && (
+                            <div className="uploaded-image-preview" id="image-preview-container">
+                              <img src={uploadedImage} id="image-preview" alt="Civic Issue Preview" />
+                              <span className="preview-badge"><ShieldCheck size={14} style={{ display: "inline-block", verticalAlign: "middle", marginRight: "4px" }} /> Face Blurred</span>
+                            </div>
+                          )}
+                          <button type="button" onClick={handlePhotoUploadSimulation} className="btn-secondary">Select Issue Photo</button>
+                        </div>
+                      </label>
+                    </div>
 
-                  <div className="verification-actions">
-                    <button onClick={handleVerifyOtp} disabled={userVerifiedOtp} className="btn-verify">Verify Mobile OTP (+10)</button>
-                    <button onClick={handleVerifyAadhaar} disabled={userVerifiedAadhaar} className="btn-verify">Verify Aadhaar ID (+30)</button>
-                  </div>
-                  <p className="trust-caption">High trust score (&gt;60) bypasses the AI spam moderation queue.</p>
+                    <button type="submit" className="btn-primary" style={{ marginTop: "10px" }}>File Complaint</button>
+                  </form>
                 </div>
               </div>
+            )}
+          {activeTab === "citizen" && (
+            <div id="view-citizen" className="panel-view active citizen-dashboard-layout">
+              {/* TOP OVERVIEW */}
+              <section className="citizen-overview">
+                <h3 className="section-title">Your Civic Activity</h3>
+                <div className="overview-metrics">
+                  <div className="overview-metric-card">
+                    <span className="metric-label">Total Reports</span>
+                    <strong className="metric-value">{totalCitizenReports}</strong>
+                  </div>
+                  <div className="overview-metric-card">
+                    <span className="metric-label text-emerald-400">Resolved</span>
+                    <strong className="metric-value text-emerald-400">{resolvedCitizenReports}</strong>
+                  </div>
+                  <div className="overview-metric-card">
+                    <span className="metric-label text-amber-400">In Progress</span>
+                    <strong className="metric-value text-amber-400">{inProgressCitizenReports}</strong>
+                  </div>
+                  <div className="overview-metric-card">
+                    <span className="metric-label text-purple-400">Awaiting Confirmation</span>
+                    <strong className="metric-value text-purple-400">{awaitingConfirmationReports}</strong>
+                  </div>
+                </div>
+              </section>
 
-              <div className="card my-reports-card">
-                <h3>My Filed Complaints & Verification Loops</h3>
-                <p className="sec-desc text-[0.75rem] text-slate-400 mb-2">Once resolved, you have a 7-day window to Confirm or Dispute the resolution.</p>
-                <ul id="my-reports-list" className="stack-list">
-                  {myReports.length === 0 ? (
-                    <li className="muted text-center py-3">You have not submitted any complaints yet.</li>
-                  ) : (
-                    myReports.map((c, i) => (
-                      <li key={i}>
-                        <strong>
-                          <span>{ISSUE_ICONS[c.issue_type] || "📍"} {c.issue_type} - {c.place_name}</span>
-                          <span className={`badge-status ${c.status.toLowerCase().replace(" ", "")}`}>{c.status}</span>
-                        </strong>
-                        <p>{c.description}</p>
-                        <p className="text-[0.72rem] text-slate-400">Filed on: {new Date(c.created_at).toLocaleDateString()}</p>
-                        
-                        {c.status === "Resolved" && (
-                          <div className="verification-loop-actions mt-2 flex gap-1">
-                            <button onClick={() => handleVerifyResolution(c.complaint_id, "Confirmed")} className="btn-confirm">Confirm Resolution</button>
-                            <button onClick={() => handleVerifyResolution(c.complaint_id, "Disputed")} className="btn-dispute">Dispute Resolution</button>
-                          </div>
-                        )}
-                      </li>
-                    ))
-                  )}
-                </ul>
+              <div className="citizen-columns">
+                {/* LEFT COLUMN */}
+                <div className="citizen-left-col">
+                  {/* Left column content begins directly with My Active Reports */}
+
+                  {/* My Active Reports List */}
+                  <div className="card my-reports-card">
+                    <div className="reports-header-flex">
+                      <h3>My Active Reports</h3>
+                      <div className="compact-filters">
+                        <button className={`filter-btn ${citizenReportFilter === 'All' ? 'active' : ''}`} onClick={() => setCitizenReportFilter('All')}>All</button>
+                        <button className={`filter-btn ${citizenReportFilter === 'Pending' ? 'active' : ''}`} onClick={() => setCitizenReportFilter('Pending')}>Pending</button>
+                        <button className={`filter-btn ${citizenReportFilter === 'Resolved' ? 'active' : ''}`} onClick={() => setCitizenReportFilter('Resolved')}>Resolved</button>
+                      </div>
+                    </div>
+                    
+                    <ul id="my-reports-list" className="stack-list mt-4">
+                      {filteredMyReports.length === 0 ? (
+                        <li className="empty-state-card text-center py-8 border-dashed border-slate-700 bg-transparent">
+                          <Activity size={32} color="var(--muted)" style={{ margin: "0 auto 12px", opacity: 0.5 }} />
+                          <p>No active reports matching filter "{citizenReportFilter}".</p>
+                        </li>
+                      ) : (
+                        filteredMyReports.map((c, i) => (
+                          <li key={i} className="report-item p-4">
+                            <div className="report-item-header mb-1">
+                              <strong>
+                                <span><span style={{display: 'inline-flex', verticalAlign: 'middle', marginRight: '6px'}}>{ISSUE_ICONS[c.issue_type] || <MapPin size={16} />}</span> {c.issue_type} - {c.place_name}</span>
+                                <span className={`badge-status ${c.status.toLowerCase().replace(" ", "")}`}>{c.status}</span>
+                              </strong>
+                              <div className="flex justify-between items-center mt-1">
+                                <p className="text-[0.72rem] text-slate-400">{new Date(c.created_at).toLocaleDateString()}</p>
+                              </div>
+                            </div>
+                            <p className="report-desc text-[0.84rem] text-slate-300 mt-2">{c.description}</p>
+                            
+                            {/* Civic Timeline */}
+                            <div className="civic-timeline mt-4">
+                               <div className={`timeline-step ${c.status !== 'Moderation' ? 'completed' : 'active'}`}>Submitted</div>
+                               <div className={`timeline-connector ${['Assigned', 'In Progress', 'Resolved', 'Closed'].includes(c.status) ? 'completed' : ''}`}></div>
+                               <div className={`timeline-step ${['Assigned', 'In Progress', 'Resolved', 'Closed'].includes(c.status) ? 'completed' : ''}`}>Assigned</div>
+                               <div className={`timeline-connector ${['In Progress', 'Resolved', 'Closed'].includes(c.status) ? 'completed' : ''}`}></div>
+                               <div className={`timeline-step ${['In Progress', 'Resolved', 'Closed'].includes(c.status) ? 'completed' : ''}`}>In Progress</div>
+                               <div className={`timeline-connector ${['Resolved', 'Closed'].includes(c.status) ? 'completed' : ''}`}></div>
+                               <div className={`timeline-step ${['Resolved', 'Closed'].includes(c.status) ? 'completed' : ''}`}>Resolved</div>
+                               <div className={`timeline-connector ${['Closed'].includes(c.status) ? 'completed' : ''}`}></div>
+                               <div className={`timeline-step ${['Closed'].includes(c.status) ? 'completed' : ''}`}>Verified</div>
+                            </div>
+
+                            {c.status === "Resolved" && (
+                              <div className="verification-loop-box mt-4 p-3 rounded bg-purple-900/15 border border-purple-500/20">
+                                <p className="text-[0.75rem] text-purple-300 mb-2 font-medium">Authorities marked this resolved. You have a 7-day window to Confirm or Dispute the resolution.</p>
+                                <div className="flex gap-2">
+                                  <button onClick={() => handleVerifyResolution(c.complaint_id, "Confirmed")} className="btn-confirm">Confirm Resolution</button>
+                                  <button onClick={() => handleVerifyResolution(c.complaint_id, "Disputed")} className="btn-dispute">Dispute Resolution</button>
+                                </div>
+                              </div>
+                            )}
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* RIGHT COLUMN */}
+                <div className="citizen-right-col">
+                  {/* Citizen Verification Card */}
+                  <div className="card profile-card">
+                    <div className="profile-header">
+                      <div className="avatar"><User size={24} /></div>
+                      <div>
+                        <h3>Citizen Identity</h3>
+                        <p>Demo User Profile</p>
+                      </div>
+                    </div>
+                    
+                    <div className="trust-score-widget mt-4">
+                      <div className="score-header">
+                        <span>Civic Trust Score</span>
+                        <strong id="citizen-trust-score">{userTrustScore}/100</strong>
+                      </div>
+                      
+                      <div className="progress-bar-bg">
+                        <div className="progress-bar-fill" style={{ width: `${userTrustScore}%` }}></div>
+                      </div>
+
+                      <div className="trust-status-flags mt-3">
+                        <span className={`status-chip ${userVerifiedOtp ? "verified" : "unverified"}`}>
+                          {userVerifiedOtp ? <><CheckCircle2 size={14} /> OTP Verified</> : "OTP Unverified"}
+                        </span>
+                        <span className={`status-chip ${userVerifiedAadhaar ? "verified" : "unverified"}`}>
+                          {userVerifiedAadhaar ? <><CheckCircle2 size={14} /> Aadhaar Verified</> : "Aadhaar Unverified"}
+                        </span>
+                      </div>
+
+                      <div className="verification-actions mt-3">
+                        <button onClick={handleVerifyOtp} disabled={userVerifiedOtp} className="btn-verify flex flex-col items-center py-2"><span className="text-[0.65rem] opacity-70 mb-1">Mobile OTP</span> <strong>+10 Trust</strong></button>
+                        <button onClick={handleVerifyAadhaar} disabled={userVerifiedAadhaar} className="btn-verify flex flex-col items-center py-2"><span className="text-[0.65rem] opacity-70 mb-1">Aadhaar ID</span> <strong>+30 Trust</strong></button>
+                      </div>
+                      
+                      <div className="mt-3 p-2 bg-emerald-900/10 border border-emerald-500/20 rounded-md">
+                        <p className="text-[0.7rem] text-emerald-400 flex items-start gap-1 leading-tight">
+                          <ShieldCheck size={14} style={{flexShrink: 0, marginTop: "1px"}} /> 
+                          Verification directly routes your reports to authorities, bypassing AI moderation queues.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Civic Impact Card */}
+                  <div className="card impact-card bg-gradient-to-br from-[#120e1a] to-[#1e142e] border-purple-500/30">
+                    <h3 className="flex items-center gap-2 text-purple-200 m-0"><Star size={18} className="text-purple-400" /> Your Civic Impact</h3>
+                    <div className="mt-4 text-center py-2">
+                      <div className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-400 mb-2">
+                        {civicImpactScore}
+                      </div>
+                      <p className="text-[0.85rem] text-purple-200/70 font-medium">Issues resolved because of you</p>
+                    </div>
+                    <p className="text-[0.7rem] text-slate-400 text-center mt-3 pt-3 border-t border-purple-500/10">Thank you for making your city better.</p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
           {activeTab === "governance" && (
-            <div id="view-governance" className="panel-view active">
-              <div className="card role-card">
-                <h3>Jurisdiction Access Control</h3>
-                <label>Select Authority Session
-                  <select value={authorityRole} onChange={(e) => setAuthorityRole(e.target.value)} id="role-selector">
-                    <option value="citizen">👤 Public View (Leaderboards & Analytics)</option>
-                    <option value="KNN">🏢 Kanpur Nagar Nigam (Officer Console)</option>
-                    <option value="KDA">📐 Kanpur Development Authority (Officer Console)</option>
-                    <option value="JAL">🚰 Jal Kal Vibhag (Officer Console)</option>
+            <div id="view-governance" className="panel-view active governance-dashboard-layout">
+              {/* TOP KPI BAR */}
+              <div className="gov-kpi-bar">
+                <div className="gov-kpi-card">
+                  <span className="kpi-label">Total Reports</span>
+                  <strong className="kpi-value">{summary.total}</strong>
+                  <span className="kpi-trend positive"><TrendingUp size={12}/> Increasing (+8%)</span>
+                </div>
+                <div className="gov-kpi-card">
+                  <span className="kpi-label text-amber-400">Open Reports</span>
+                  <strong className="kpi-value text-amber-400">{summary.pending}</strong>
+                  <span className="kpi-trend negative"><TrendingUp size={12}/> Worsening (+2%)</span>
+                </div>
+                <div className="gov-kpi-card">
+                  <span className="kpi-label text-emerald-400">Resolved Reports</span>
+                  <strong className="kpi-value text-emerald-400">{summary.resolved}</strong>
+                  <span className="kpi-trend positive"><TrendingUp size={12}/> Improving (+12%)</span>
+                </div>
+                <div className="gov-kpi-card">
+                  <span className="kpi-label text-[#22d3ee]">Resolution Rate</span>
+                  <strong className="kpi-value text-[#22d3ee]">{summary.total > 0 ? ((summary.resolved / summary.total) * 100).toFixed(1) : 0}%</strong>
+                  <span className="kpi-trend positive"><TrendingUp size={12}/> Improving (+4%)</span>
+                </div>
+              </div>
+
+              {/* JURISDICTION & ATTENTION REQUIRED */}
+              <div className="gov-columns grid-1-2">
+                <div className="card gov-jurisdiction-card bg-gradient-to-br from-[#120e1a] to-[#1e142e] border-purple-500/30">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="text-purple-300 mb-1 text-[0.75rem] uppercase tracking-wider font-bold">Current Session</h3>
+                      <strong className="text-lg text-white block mb-4">
+                        {authorityRole === "citizen" ? "Public View" : `${authorityRole} Officer Console`}
+                      </strong>
+                    </div>
+                    <ShieldCheck size={24} className="text-purple-400 opacity-50" />
+                  </div>
+                  <label className="block text-[0.8rem] text-slate-400 mb-1">Switch Authority Access</label>
+                  <select value={authorityRole} onChange={(e) => setAuthorityRole(e.target.value)} id="role-selector" className="w-full bg-slate-900 border border-slate-700 text-white rounded p-2 text-[0.85rem] focus:outline-none focus:border-purple-500">
+                    <option value="citizen">Public View (Leaderboards & Analytics)</option>
+                    <option value="KNN">Kanpur Nagar Nigam (Officer Console)</option>
+                    <option value="KDA">Kanpur Development Authority (Officer Console)</option>
+                    <option value="JAL">Jal Kal Vibhag (Officer Console)</option>
                   </select>
-                </label>
+                </div>
+
+                <div className="card gov-attention-card border-amber-500/30 bg-amber-900/10">
+                  <h3 className="flex items-center gap-2 text-amber-400 mb-3"><AlertTriangle size={16}/> Attention Required</h3>
+                  <div className="attention-list">
+                    <button className="attention-item" onClick={handleMapNavigate}>
+                      <span className="attention-dot critical"></span>
+                      <div className="attention-text">
+                        <strong>18 Critical complaints older than 7 days</strong>
+                        <span>Kanpur Nagar • Tap to view on Map</span>
+                      </div>
+                      <ChevronRight size={14} className="text-slate-500" />
+                    </button>
+                    <button className="attention-item" onClick={handleMapNavigate}>
+                      <span className="attention-dot warning"></span>
+                      <div className="attention-text">
+                        <strong>Becon Ganj AQI worsening rapidly (↑ 8%)</strong>
+                        <span>Air Quality Alert • Tap to view on Map</span>
+                      </div>
+                      <ChevronRight size={14} className="text-slate-500" />
+                    </button>
+                    <button className="attention-item" onClick={handleMapNavigate}>
+                      <span className="attention-dot info"></span>
+                      <div className="attention-text">
+                        <strong>Jal Kal Vibhag resolution rate declined by 4%</strong>
+                        <span>Performance Alert • Tap to view Analytics</span>
+                      </div>
+                      <ChevronRight size={14} className="text-slate-500" />
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              {/* Leaderboard */}
-              <div className="card leaderboard-card">
-                <h3>Authority Resolution Leaderboard</h3>
-                <table className="data-table w-full text-left border-collapse mt-2">
-                  <thead>
-                    <tr className="border-b border-slate-700 text-slate-400 text-[0.75rem] uppercase">
-                      <th className="py-2">Authority</th>
-                      <th className="py-2">Performance</th>
-                      <th className="py-2">Resolved</th>
-                      <th className="py-2">Disputes</th>
-                      <th className="py-2">Open</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {authorities.map((auth, i) => (
-                      <tr key={i} className="border-b border-slate-800 text-[0.84rem]">
-                        <td className="py-2 font-medium">{auth.name}</td>
-                        <td className="py-2 text-[#22d3ee] font-bold">{auth.metrics?.score || 75}%</td>
-                        <td className="py-2">{auth.metrics?.resolved_complaints || 0}</td>
-                        <td className="py-2 text-rose-400">{auth.metrics?.disputed_complaints || 0}</td>
-                        <td className="py-2">{auth.metrics?.open_complaints || 0}</td>
+              {/* SPATIAL ANALYTICS TOOLS */}
+              <div className="card mb-4 bg-slate-900/30 border-slate-700/50">
+                <h3 className="flex items-center gap-2 mb-3 text-slate-300"><MapIcon size={16}/> Spatial Intelligence Tools</h3>
+                <div className="flex gap-4 items-center flex-wrap">
+                  <button className="secondary-btn bg-brand/10 text-brand border-brand/20 hover:bg-brand/20" onClick={() => setShowInsight(!showInsight)} title="Explain this View">
+                    <Lightbulb size={16} /> Explain Current Map View
+                  </button>
+                  
+                  <div className="flex items-center bg-slate-900/80 rounded-full border border-slate-700/50 overflow-hidden">
+                    <button 
+                      className={`px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 transition-colors ${isPlayingHeatmap ? 'bg-brand text-white' : 'hover:bg-slate-800 text-slate-300'}`}
+                      onClick={() => setIsPlayingHeatmap(!isPlayingHeatmap)}
+                      title={isPlayingHeatmap ? "Pause Timeline" : "Play Timeline"}
+                    >
+                      {isPlayingHeatmap ? <span className="w-2 h-2 bg-white rounded-sm"></span> : <span className="w-0 h-0 border-t-[4px] border-t-transparent border-l-[6px] border-l-current border-b-[4px] border-b-transparent"></span>}
+                      {isPlayingHeatmap ? 'Pause' : 'Play'}
+                    </button>
+                    <div className="w-px h-4 bg-slate-700 mx-1"></div>
+                    <div className="flex text-[0.7rem] font-medium items-center px-1">
+                      <span className="text-slate-500 mr-1 text-[0.65rem] uppercase tracking-wider hidden sm:inline">Timeline:</span>
+                      <button className={`px-2 py-1 rounded transition-colors ${heatmapPeriod === 7 ? 'bg-brand/20 text-brand' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`} onClick={() => setHeatmapPeriod(7)}>7D</button>
+                      <button className={`px-2 py-1 rounded transition-colors ${heatmapPeriod === 30 ? 'bg-brand/20 text-brand' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`} onClick={() => setHeatmapPeriod(30)}>30D</button>
+                      <button className={`px-2 py-1 rounded transition-colors ${heatmapPeriod === 90 ? 'bg-brand/20 text-brand' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`} onClick={() => setHeatmapPeriod(90)}>90D</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* TREND CHARTS */}
+              <div className="gov-columns grid-2-1">
+                <div className="card gov-chart-card">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3>Resolution Trend</h3>
+                    <div className="compact-filters">
+                      <button className={`filter-btn ${govResolutionPeriod === '7' ? 'active' : ''}`} onClick={() => setGovResolutionPeriod('7')}>7D</button>
+                      <button className={`filter-btn ${govResolutionPeriod === '30' ? 'active' : ''}`} onClick={() => setGovResolutionPeriod('30')}>30D</button>
+                      <button className={`filter-btn ${govResolutionPeriod === '90' ? 'active' : ''}`} onClick={() => setGovResolutionPeriod('90')}>90D</button>
+                    </div>
+                  </div>
+                  
+                  {/* Mock Chart Visualization */}
+                  <div className="mock-chart-container">
+                    <div className="mock-chart-stats flex gap-6 mb-4">
+                      <div><span className="block text-[0.7rem] text-slate-400 uppercase">Received</span><strong className="text-lg text-white">{mockResolutionData[govResolutionPeriod].received}</strong></div>
+                      <div><span className="block text-[0.7rem] text-emerald-400 uppercase">Resolved</span><strong className="text-lg text-emerald-400">{mockResolutionData[govResolutionPeriod].resolved}</strong></div>
+                      <div><span className="block text-[0.7rem] text-amber-400 uppercase">Open</span><strong className="text-lg text-amber-400">{mockResolutionData[govResolutionPeriod].open}</strong></div>
+                    </div>
+                    <div className="mock-bar-chart flex items-end gap-1 h-[120px] border-b border-slate-700 pb-1">
+                      {/* Generating random bars for visual effect based on period */}
+                      {Array.from({length: govResolutionPeriod === '7' ? 7 : 14}).map((_, i) => {
+                        // Deterministic random for visual stability during renders
+                        const seededRandom = ((i * 13) % 100) / 100;
+                        const h1 = 30 + seededRandom * 50;
+                        const h2 = h1 * (0.5 + ((i * 7) % 50) / 100);
+                        return (
+                          <div key={i} className="flex-1 flex flex-col justify-end items-center gap-1 group">
+                            <div className="w-full bg-slate-700/50 rounded-t-sm relative transition-all group-hover:bg-slate-600" style={{height: `${h1}%`}}>
+                              <div className="absolute bottom-0 left-0 right-0 bg-emerald-500/70 rounded-b-sm" style={{height: `${(h2/h1)*100}%`}}></div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="flex justify-between text-[0.65rem] text-slate-500 mt-2 uppercase">
+                      <span>{govResolutionPeriod} Days Ago</span>
+                      <span>Today</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="card gov-volume-card flex flex-col justify-between">
+                  <div>
+                    <h3>Complaint Volume</h3>
+                    <div className="mt-4 flex items-center gap-3">
+                      <div className="bg-rose-500/20 p-3 rounded-full text-rose-400">
+                        <TrendingUp size={24} />
+                      </div>
+                      <div>
+                        <strong className="text-xl text-rose-400">Increasing</strong>
+                        <p className="text-[0.75rem] text-slate-400">Up 14% vs previous 30 days</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-6 border-t border-slate-800 pt-4">
+                    <h3 className="text-[0.75rem] text-slate-400 mb-2 uppercase">Top Rising Categories</h3>
+                    <div className="flex justify-between text-[0.8rem] mb-1"><span className="text-white">Roads & Potholes</span><span className="text-rose-400">+22%</span></div>
+                    <div className="flex justify-between text-[0.8rem] mb-1"><span className="text-white">Sanitation & Waste</span><span className="text-rose-400">+15%</span></div>
+                    <div className="flex justify-between text-[0.8rem]"><span className="text-slate-300">Streetlights</span><span className="text-slate-400">+2%</span></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* AUTHORITY & WARD & ACCOUNTABILITY */}
+              <div className="gov-columns grid-1-1-1">
+                {/* Authority Leaderboard */}
+                <div className="card gov-authority-card">
+                  <h3>Authority Performance</h3>
+                  <table className="gov-table mt-3 w-full text-left">
+                    <thead>
+                      <tr className="text-slate-400 text-[0.7rem] uppercase border-b border-slate-800">
+                        <th className="pb-2 font-normal">Authority</th>
+                        <th className="pb-2 font-normal">Res Rate</th>
+                        <th className="pb-2 font-normal">Open</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {authorities.map((auth, i) => (
+                        <tr key={i} className="cursor-pointer border-b border-slate-800/50 hover:bg-slate-800/50 transition-colors" onClick={() => setSelectedAuthorityDetails(auth)}>
+                          <td className="py-2 font-medium text-[0.8rem] text-white">{auth.name}</td>
+                          <td className="py-2 text-[0.8rem] text-[#22d3ee] font-bold">{auth.metrics?.score || 75}%</td>
+                          <td className="py-2 text-[0.8rem] text-amber-400">{auth.metrics?.open_complaints || 0}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  
+                  {/* Authority Detail Modal/Drawer (In-place) */}
+                  {selectedAuthorityDetails && (
+                    <div className="authority-detail-panel mt-4 p-3 bg-slate-900/80 border border-slate-700 rounded-md animate-in fade-in slide-in-from-top-2">
+                      <div className="flex justify-between items-start mb-3">
+                        <h4 className="font-bold text-white text-[0.85rem]">{selectedAuthorityDetails.name}</h4>
+                        <button onClick={() => setSelectedAuthorityDetails(null)} className="text-slate-400 hover:text-white"><X size={14}/></button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-[0.75rem] mb-3">
+                        <div className="bg-slate-800/80 p-2 rounded border border-slate-700/50">
+                          <span className="text-slate-400 block mb-1 text-[0.65rem] uppercase tracking-wider">Res Rate</span>
+                          <strong className="text-[#22d3ee] text-[0.95rem]">{selectedAuthorityDetails.metrics?.score || 75}%</strong>
+                        </div>
+                        <div className="bg-slate-800/80 p-2 rounded border border-slate-700/50">
+                          <span className="text-slate-400 block mb-1 text-[0.65rem] uppercase tracking-wider">Avg Response</span>
+                          <strong className="text-white text-[0.95rem]">2.4 days</strong>
+                        </div>
+                        <div className="bg-slate-800/80 p-2 rounded border border-slate-700/50">
+                          <span className="text-slate-400 block mb-1 text-[0.65rem] uppercase tracking-wider">Citizen Sat.</span>
+                          <strong className="text-amber-400 text-[0.95rem]">4.1 ★</strong>
+                        </div>
+                        <div className="bg-slate-800/80 p-2 rounded border border-slate-700/50">
+                          <span className="text-slate-400 block mb-1 text-[0.65rem] uppercase tracking-wider">Open Critical</span>
+                          <strong className="text-rose-400 text-[0.95rem]">12</strong>
+                        </div>
+                      </div>
+                      <button onClick={handleMapNavigate} className="btn-secondary w-full text-[0.75rem] py-1.5 flex justify-center items-center gap-2">
+                        <Map size={14}/> View on Map
+                      </button>
+                    </div>
+                  )}
+                </div>
 
-              {/* Ward AQI Rankings */}
-              <div className="card ranking-card">
-                <h3>Ward AQI Performance Rankings</h3>
-                <ul id="ward-ranking-list" className="ranking-list flex flex-col gap-2 mt-2 max-h-[220px] overflow-y-auto">
-                  {wardRankings.slice(0, 15).map((ward, i) => (
-                    <li key={i} className="flex justify-between items-center text-[0.84rem] bg-slate-900 border border-slate-800 rounded p-2">
-                      <span>{i + 1}. {ward.name}</span>
-                      <strong style={{ color: scoreToColor(ward.area_score) }}>{ward.area_score} AQI</strong>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                {/* Ward AQI */}
+                <div className="card gov-ward-card">
+                  <h3>Ward AQI Performance</h3>
+                  <ul className="ward-ranking-list mt-3 flex flex-col gap-2 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+                    {wardRankings.slice(0, 10).map((ward, i) => {
+                      const mockTrend = i % 3 === 0 ? "↑ 8%" : i % 2 === 0 ? "↓ 4%" : "-";
+                      const trendColor = mockTrend.includes("↑") ? "text-rose-400" : mockTrend.includes("↓") ? "text-emerald-400" : "text-slate-500";
+                      return (
+                        <li key={i} className="flex justify-between items-center text-[0.8rem] bg-slate-900/50 border border-slate-800 rounded p-2 hover:border-slate-600 cursor-pointer transition-colors" onClick={handleMapNavigate}>
+                          <span className="text-white">{i + 1}. {ward.name}</span>
+                          <div className="flex items-center gap-3">
+                            <strong style={{ color: scoreToColor(ward.area_score) }}>{ward.area_score} AQI</strong>
+                            <span className={`text-[0.7rem] w-8 text-right font-medium ${trendColor}`}>{mockTrend}</span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
 
-              {/* Officer Workspace */}
+                {/* Accountability & Export */}
+                <div className="flex flex-col gap-4">
+                  <div className="card gov-accountability-card">
+                    <h3>Civic Accountability</h3>
+                    <div className="mt-3 flex flex-col gap-2">
+                      <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded border border-slate-800 text-[0.8rem]">
+                        <span className="text-slate-300">Citizen Confirmation</span>
+                        <strong className="text-emerald-400">88%</strong>
+                      </div>
+                      <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded border border-slate-800 text-[0.8rem]">
+                        <span className="text-slate-300">Disputed Resolutions</span>
+                        <strong className="text-rose-400">42 open</strong>
+                      </div>
+                      <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded border border-slate-800 text-[0.8rem]">
+                        <span className="text-slate-300">Overdue Complaints</span>
+                        <strong className="text-amber-400">156</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="card gov-export-card border-slate-700/50 bg-slate-900/30">
+                    <h3 className="flex items-center gap-2 text-white"><Download size={14}/> Civic Data</h3>
+                    <p className="text-[0.7rem] text-slate-400 mb-3 mt-1">Export public immutable logs.</p>
+                    <div className="flex gap-2">
+                      <button onClick={() => window.open("/api/complaints/export", "_blank")} className="btn-secondary flex-1 text-[0.7rem] py-1.5 flex justify-center items-center gap-1">
+                        CSV
+                      </button>
+                      <button className="btn-secondary flex-1 text-[0.7rem] py-1.5 flex justify-center items-center gap-1 opacity-50 cursor-not-allowed border-dashed" title="JSON export coming soon">
+                        JSON
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* OFFICER WORKSPACE (Hidden unless authenticated, but keeping logic just in case) */}
               {authorityRole !== "citizen" && (
-                <div className="card officer-workspace" id="officer-panel">
+                <div className="card officer-workspace mt-4" id="officer-panel">
+                  {/* Keeping Officer workspace logic unchanged from existing implementation */}
                   <div className="workspace-header flex justify-between items-center mb-2">
                     <h3 id="officer-workspace-title">{authorityRole} Officer Workspace</h3>
                     <span className="badge-active-jurisdiction bg-green-500/10 text-green-400 border border-green-500/20 px-2 py-0.5 rounded text-[0.7rem]">Admin Jurisdiction Active</span>
                   </div>
-                  
-                  <div className="workspace-desc alert-info text-[0.74rem]">
-                    🚫 Complaints are permanently recorded in the civic ledger and cannot be deleted. All state transitions are logged.
+                  <div className="alert-info" style={{ display: "flex", alignItems: "center" }}>
+                    <ShieldAlert size={16} color="var(--critical)" style={{ marginRight: "8px" }} /> Complaints are permanently recorded in the civic ledger and cannot be deleted. All state transitions are logged.
                   </div>
-
                   <div className="complaints-filter-group mt-2">
                     <label className="text-[0.8rem] flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={viewModerationQueue}
-                        onChange={(e) => setViewModerationQueue(e.target.checked)}
-                        id="chk-moderation-queue"
-                      />
+                      <input type="checkbox" checked={viewModerationQueue} onChange={(e) => setViewModerationQueue(e.target.checked)} id="chk-moderation-queue"/>
                       View Pending AI Moderation Queue
                     </label>
                   </div>
-
                   <div className="officer-complaints-box mt-3">
                     <h4 className="text-[0.9rem] font-medium border-b border-slate-800 pb-1 mb-2">Assigned Civic Complaints</h4>
                     <ul id="officer-complaints-list" className="stack-list">
@@ -1373,24 +2050,16 @@ export default function Dashboard() {
                         officerComplaints.map((c, i) => (
                           <li key={i} className={c.escalated ? "escalated-pulse" : ""}>
                             <strong>
-                              <span>{ISSUE_ICONS[c.issue_type] || "📍"} {c.issue_type} - {c.place_name}</span>
+                              <span><span style={{display: 'inline-flex', verticalAlign: 'middle', marginRight: '6px'}}>{ISSUE_ICONS[c.issue_type] || <MapPin size={16} />}</span> {c.issue_type} - {c.place_name}</span>
                               <span className={`badge-status ${c.status.toLowerCase().replace(" ", "")}`}>{c.status}</span>
                             </strong>
                             <p>{c.description}</p>
                             <p className="text-[0.72rem] text-slate-400">trust score: {c.user_trust_score}</p>
                             <div className="mt-2 flex gap-1 justify-end">
-                              {c.status === "Submitted" && (
-                                <button onClick={() => handleStatusAdvance(c.complaint_id, "Verified")} className="btn-verify py-1 px-2 w-auto mt-0">Verify Issue</button>
-                              )}
-                              {c.status === "Verified" && (
-                                <button onClick={() => handleStatusAdvance(c.complaint_id, "Assigned")} className="btn-verify py-1 px-2 w-auto mt-0">Assign Team</button>
-                              )}
-                              {c.status === "Assigned" && (
-                                <button onClick={() => handleStatusAdvance(c.complaint_id, "In Progress")} className="btn-verify py-1 px-2 w-auto mt-0">Start Work</button>
-                              )}
-                              {c.status === "In Progress" && (
-                                <button onClick={() => handleStatusAdvance(c.complaint_id, "Resolved")} className="btn-verify py-1 px-2 w-auto mt-0">Mark Resolved</button>
-                              )}
+                              {c.status === "Submitted" && <button onClick={() => handleStatusAdvance(c.complaint_id, "Verified")} className="btn-verify py-1 px-2 w-auto mt-0">Verify Issue</button>}
+                              {c.status === "Verified" && <button onClick={() => handleStatusAdvance(c.complaint_id, "Assigned")} className="btn-verify py-1 px-2 w-auto mt-0">Assign Team</button>}
+                              {c.status === "Assigned" && <button onClick={() => handleStatusAdvance(c.complaint_id, "In Progress")} className="btn-verify py-1 px-2 w-auto mt-0">Start Work</button>}
+                              {c.status === "In Progress" && <button onClick={() => handleStatusAdvance(c.complaint_id, "Resolved")} className="btn-verify py-1 px-2 w-auto mt-0">Mark Resolved</button>}
                               {c.status === "Moderation" && (
                                 <>
                                   <button onClick={() => handleStatusAdvance(c.complaint_id, "Submitted")} className="btn-confirm py-1 px-2 w-auto mt-0">Approve</button>
@@ -1405,22 +2074,67 @@ export default function Dashboard() {
                   </div>
                 </div>
               )}
-
-              {/* CSV Export */}
-              <div className="card export-card">
-                <h3>Civic Data Analytics Portal</h3>
-                <p className="text-[0.8rem] text-slate-400 mb-2">Export completed and open logs for public media inspection and analytics.</p>
-                <button
-                  onClick={() => window.open("/api/complaints/export", "_blank")}
-                  className="btn-secondary w-full"
-                >
-                  📥 Export Immutable Civic Ledger (CSV)
-                </button>
-              </div>
             </div>
           )}
         </aside>
+        )}
       </main>
+      {/* Global Search Modal */}
+      {showSearchModal && (
+        <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-start justify-center pt-20" onClick={() => setShowSearchModal(false)}>
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center px-4 py-3 border-b border-slate-800">
+              <Search size={18} className="text-slate-400 mr-3" />
+              <input
+                autoFocus
+                type="text"
+                placeholder="Search anywhere (locations, complaints, authorities)..."
+                className="bg-transparent border-none outline-none w-full text-white placeholder:text-slate-500"
+                value={searchQuery}
+                onChange={handleSearch}
+              />
+              <button onClick={() => setShowSearchModal(false)} className="text-slate-400 hover:text-white p-1">
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="max-h-[60vh] overflow-y-auto">
+              {searchQuery && searchResults.length === 0 ? (
+                <div className="px-4 py-8 text-center text-slate-500 text-sm">
+                  No results found for "{searchQuery}"
+                </div>
+              ) : !searchQuery ? (
+                <div className="px-4 py-8 text-center text-slate-500 text-sm">
+                  <div className="flex justify-center gap-4 mb-4 opacity-60">
+                    <span className="flex items-center gap-1"><kbd className="bg-slate-800 px-1.5 rounded">M</kbd> Map</span>
+                    <span className="flex items-center gap-1"><kbd className="bg-slate-800 px-1.5 rounded">A</kbd> AQI</span>
+                    <span className="flex items-center gap-1"><kbd className="bg-slate-800 px-1.5 rounded">C</kbd> Complaints</span>
+                    <span className="flex items-center gap-1"><kbd className="bg-slate-800 px-1.5 rounded">R</kbd> Report</span>
+                  </div>
+                  Type to start searching Nirikshan Ledger.
+                </div>
+              ) : (
+                <div className="py-2">
+                  <div className="px-4 py-1 text-xs font-bold text-slate-500 uppercase tracking-wider">LOCATIONS</div>
+                  <ul className="search-results-modal">
+                    {searchResults.map((f, i) => (
+                      <li key={i} onClick={() => selectSearchResult(f)} className="px-4 py-2 hover:bg-slate-800 cursor-pointer flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-brand">
+                          {PLACE_ICONS[f.properties.type] || <MapPin size={14}/>}
+                        </div>
+                        <div>
+                          <div className="text-sm font-semibold text-slate-200">{f.properties.name}</div>
+                          <div className="text-xs text-slate-500">{f.properties.type} • {f.properties.address}</div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
