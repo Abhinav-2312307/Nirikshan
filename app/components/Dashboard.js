@@ -1112,19 +1112,55 @@ export default function Dashboard() {
     input.click();
   };
 
+  const searchTimeoutRef = useRef(null);
+
   const handleSearch = async (e) => {
     const q = e.target.value;
     setSearchQuery(q);
+    
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
     if (!q.trim()) {
       setSearchResults([]);
       return;
     }
-    try {
-      const res = await api(`/api/places?q=${encodeURIComponent(q)}&limit=8`);
-      setSearchResults(res.features || []);
-    } catch (err) {
-      console.error(err);
-    }
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const localRes = await api(`/api/places?q=${encodeURIComponent(q)}&limit=8`);
+        let combinedFeatures = localRes.features || [];
+
+        // Fetch from external map API (Nominatim)
+        try {
+          const nominatimRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=geojson&addressdetails=1&limit=5`);
+          if (nominatimRes.ok) {
+            const nominatimData = await nominatimRes.json();
+            if (nominatimData.features) {
+              const mappedNominatim = nominatimData.features.map(f => ({
+                type: "Feature",
+                geometry: f.geometry,
+                properties: {
+                  place_id: "ext_" + f.properties.place_id,
+                  name: f.properties.name || f.properties.display_name.split(',')[0],
+                  type: f.properties.type || "place",
+                  address: f.properties.display_name,
+                  center: null // allow geometry fallback to handle center
+                }
+              }));
+              combinedFeatures = [...combinedFeatures, ...mappedNominatim];
+            }
+          }
+        } catch (nomErr) {
+          console.error("Nominatim search failed:", nomErr);
+        }
+
+        setSearchResults(combinedFeatures);
+      } catch (err) {
+        console.error(err);
+      }
+    }, 400);
   };
 
   const selectSearchResult = async (feature) => {
