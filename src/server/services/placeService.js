@@ -116,6 +116,41 @@ export async function listPlaces(filters = {}) {
     });
   }
 
+  // Also include matching administrative areas and wards when searching
+  if (q && !type) {
+    const areaLevels = ["macro", "kanpur-subdistricts", "up-districts", "india-states"];
+    for (const lvl of areaLevels) {
+      const areaDataset = getAreas(lvl);
+      for (const f of (areaDataset?.features || [])) {
+        const name = (f.properties?.name || "").toLowerCase();
+        const city = (f.properties?.city || "").toLowerCase();
+        if (name.includes(q) || city.includes(q)) {
+          const areaId = f.properties.area_id;
+          if (!features.some(existing => existing.properties.place_id === areaId)) {
+            features.push({
+              type: "Feature",
+              properties: {
+                place_id: areaId,
+                name: f.properties.name,
+                type: "area",
+                address: `${f.properties.name}, ${f.properties.city || f.properties.state || "Kanpur"}`,
+                area_id: areaId,
+                center: centerOfFeature(f),
+                metrics: {
+                  avg_rating: ((f.properties.area_score || 70) / 20).toFixed(1),
+                  review_count: 0,
+                  complaint_count: 0,
+                  pending_complaints: 0
+                }
+              },
+              geometry: f.geometry
+            });
+          }
+        }
+      }
+    }
+  }
+
   return { type: "FeatureCollection", features };
 }
 

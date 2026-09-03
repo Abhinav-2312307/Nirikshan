@@ -3,10 +3,17 @@ import path from "path";
 
 const DATA_DIR = path.join(process.cwd(), "src", "server", "data");
 
+const cache = new Map();
+
 function readJson(fileName, fallback) {
+  if (cache.has(fileName)) {
+    return cache.get(fileName);
+  }
   try {
     const filePath = path.join(DATA_DIR, fileName);
-    return JSON.parse(fs.readFileSync(filePath, "utf-8"));
+    const data = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+    cache.set(fileName, data);
+    return data;
   } catch {
     return fallback;
   }
@@ -15,6 +22,7 @@ function readJson(fileName, fallback) {
 function writeJson(fileName, value) {
   const filePath = path.join(DATA_DIR, fileName);
   fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
+  cache.set(fileName, value);
 }
 
 function getAreas(level = "macro") {

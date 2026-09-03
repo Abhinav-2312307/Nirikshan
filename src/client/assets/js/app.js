@@ -45,11 +45,11 @@ const map = L.map("map", {
   zoomControl: true,
   minZoom: 3,
   maxZoom: 18
-}).setView([26.4185, 80.305], 13); // Centered on Naubasta, Kanpur
+}).setView([26.4069, 80.3315], 14); // Centered on Naubasta, Kanpur
 
-L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-  attribution: "© OpenStreetMap contributors, © CartoDB",
-  subdomains: "abcd",
+L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
+  attribution: "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ",
+  maxNativeZoom: 16,
   maxZoom: 20
 }).addTo(map);
 
