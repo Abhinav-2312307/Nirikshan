@@ -54,6 +54,8 @@ function centerOfFeature(feature) {
   if (geometry.type === "Point") return geometry.coordinates;
   if (geometry.type === "LineString") return centerOfLine(geometry.coordinates || []);
   if (geometry.type === "Polygon") return centroidOfPolygon((geometry.coordinates && geometry.coordinates[0]) || []);
+  if (geometry.type === "MultiLineString") return centerOfLine((geometry.coordinates && geometry.coordinates[0]) || []);
+  if (geometry.type === "MultiPolygon") return centroidOfPolygon((geometry.coordinates && geometry.coordinates[0] && geometry.coordinates[0][0]) || []);
   return [0, 0];
 }
 

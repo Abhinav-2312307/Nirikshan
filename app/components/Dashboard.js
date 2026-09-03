@@ -1112,19 +1112,55 @@ export default function Dashboard() {
     input.click();
   };
 
+  const searchTimeoutRef = useRef(null);
+
   const handleSearch = async (e) => {
     const q = e.target.value;
     setSearchQuery(q);
+    
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
     if (!q.trim()) {
       setSearchResults([]);
       return;
     }
-    try {
-      const res = await api(`/api/places?q=${encodeURIComponent(q)}&limit=8`);
-      setSearchResults(res.features || []);
-    } catch (err) {
-      console.error(err);
-    }
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const localRes = await api(`/api/places?q=${encodeURIComponent(q)}&limit=8`);
+        let combinedFeatures = localRes.features || [];
+
+        // Fetch from external map API (Nominatim)
+        try {
+          const nominatimRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=geojson&addressdetails=1&limit=5`);
+          if (nominatimRes.ok) {
+            const nominatimData = await nominatimRes.json();
+            if (nominatimData.features) {
+              const mappedNominatim = nominatimData.features.map(f => ({
+                type: "Feature",
+                geometry: f.geometry,
+                properties: {
+                  place_id: "ext_" + f.properties.place_id,
+                  name: f.properties.name || f.properties.display_name.split(',')[0],
+                  type: f.properties.type || "place",
+                  address: f.properties.display_name,
+                  center: null // allow geometry fallback to handle center
+                }
+              }));
+              combinedFeatures = [...combinedFeatures, ...mappedNominatim];
+            }
+          }
+        } catch (nomErr) {
+          console.error("Nominatim search failed:", nomErr);
+        }
+
+        setSearchResults(combinedFeatures);
+      } catch (err) {
+        console.error(err);
+      }
+    }, 400);
   };
 
   const selectSearchResult = async (feature) => {
@@ -1133,15 +1169,24 @@ export default function Dashboard() {
     const map = mapInstance.current;
     if (!map) return;
 
-    const geom = feature.geometry;
     let coords = [];
-    if (geom.type === "Point") coords = [geom.coordinates[1], geom.coordinates[0]];
-    else if (geom.type === "LineString") coords = [geom.coordinates[0][1], geom.coordinates[0][0]];
-    else if (geom.type === "Polygon") coords = [geom.coordinates[0][0][1], geom.coordinates[0][0][0]];
+    if (feature.properties && feature.properties.center) {
+      // Backend center is [lng, lat], Leaflet needs [lat, lng]
+      coords = [feature.properties.center[1], feature.properties.center[0]];
+    } else if (feature.geometry) {
+      const geom = feature.geometry;
+      if (geom.type === "Point") coords = [geom.coordinates[1], geom.coordinates[0]];
+      else if (geom.type === "LineString") coords = [geom.coordinates[0][1], geom.coordinates[0][0]];
+      else if (geom.type === "Polygon") coords = [geom.coordinates[0][0][1], geom.coordinates[0][0][0]];
+      else if (geom.type === "MultiPolygon") coords = [geom.coordinates[0][0][0][1], geom.coordinates[0][0][0][0]];
+      else if (geom.type === "MultiLineString") coords = [geom.coordinates[0][0][1], geom.coordinates[0][0][0]];
+    }
 
-    map.flyTo(coords, 16, { duration: 0.8 });
-    setSelectedLatlng({ lat: coords[0], lng: coords[1] });
-    await resolveAndRenderPlace(coords[0], coords[1]);
+    if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+      map.flyTo(coords, 16, { duration: 0.8 });
+      setSelectedLatlng({ lat: coords[0], lng: coords[1] });
+      await resolveAndRenderPlace(coords[0], coords[1]);
+    }
   };
 
   const scoreToColor = (score) => {
