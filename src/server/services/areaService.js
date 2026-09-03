@@ -83,15 +83,12 @@ export function computeAreaScore(areaFeature, level, reviews, complaints, places
   return clamp(finalScore, 0, 100);
 }
 
-export async function listAreas(level) {
-  const dataset = getAreas(level);
-  
-  const { db } = await connectToDatabase();
-  const places = await db.collection("places").find({}).toArray();
-  const reviews = await db.collection("reviews").find({}).toArray();
-  const complaints = await db.collection("complaints").find({}).toArray();
+let cachedAreaParentMap = null;
 
-  const areaParentMap = new Map();
+function getAreaParentMap() {
+  if (cachedAreaParentMap) return cachedAreaParentMap;
+
+  const map = new Map();
   
   const distFeatures = getAreas("up-districts").features || [];
   const subdistFeatures = getAreas("kanpur-subdistricts").features || [];
@@ -100,20 +97,34 @@ export async function listAreas(level) {
   const submicroFeatures = getAreas("submicro").features || [];
 
   distFeatures.forEach(f => {
-    if (f.properties.parent_area_id) areaParentMap.set(f.properties.area_id, f.properties.parent_area_id);
+    if (f.properties.parent_area_id) map.set(f.properties.area_id, f.properties.parent_area_id);
   });
   subdistFeatures.forEach(f => {
-    if (f.properties.parent_area_id) areaParentMap.set(f.properties.area_id, f.properties.parent_area_id);
+    if (f.properties.parent_area_id) map.set(f.properties.area_id, f.properties.parent_area_id);
   });
   macroFeatures.forEach(f => {
-    if (f.properties.parent_area_id) areaParentMap.set(f.properties.area_id, f.properties.parent_area_id);
+    if (f.properties.parent_area_id) map.set(f.properties.area_id, f.properties.parent_area_id);
   });
   microFeatures.forEach(f => {
-    if (f.properties.parent_area_id) areaParentMap.set(f.properties.area_id, f.properties.parent_area_id);
+    if (f.properties.parent_area_id) map.set(f.properties.area_id, f.properties.parent_area_id);
   });
   submicroFeatures.forEach(f => {
-    if (f.properties.parent_area_id) areaParentMap.set(f.properties.area_id, f.properties.parent_area_id);
+    if (f.properties.parent_area_id) map.set(f.properties.area_id, f.properties.parent_area_id);
   });
+
+  cachedAreaParentMap = map;
+  return map;
+}
+
+export async function listAreas(level) {
+  const dataset = getAreas(level);
+  
+  const { db } = await connectToDatabase();
+  const places = await db.collection("places").find({}).toArray();
+  const reviews = await db.collection("reviews").find({}).toArray();
+  const complaints = await db.collection("complaints").find({}).toArray();
+
+  const areaParentMap = getAreaParentMap();
 
   return {
     type: "FeatureCollection",

@@ -7,27 +7,27 @@
         "place_id": "PL_ROAD_001",
         "name": "Naubasta Main Road",
         "type": "road",
-        "area_id": "WARD_88_MICRO_1_SUB_2",
-        "address": "Naubasta Main Rd, Kanpur"
+        "area_id": "WARD_30",
+        "address": "Naubasta Main Road (Hamirpur Road), Kanpur"
       },
       "geometry": {
         "type": "LineString",
         "coordinates": [
           [
-            80.3016,
-            26.4172
+            80.3315,
+            26.4069
           ],
           [
-            80.3048,
-            26.4192
+            80.3308,
+            26.4042
           ],
           [
-            80.3089,
-            26.4217
+            80.3302,
+            26.401
           ],
           [
-            80.3124,
-            26.4238
+            80.3294,
+            26.397
           ]
         ]
       }
@@ -38,27 +38,27 @@
         "place_id": "PL_ROAD_002",
         "name": "Ratanpur Link Road",
         "type": "road",
-        "area_id": "WARD_36_MICRO_2_SUB_2",
+        "area_id": "WARD_30",
         "address": "Ratanpur Link, Naubasta"
       },
       "geometry": {
         "type": "LineString",
         "coordinates": [
           [
-            80.3049,
-            26.4058
+            80.3315,
+            26.4069
           ],
           [
-            80.3073,
-            26.4081
+            80.335,
+            26.4072
           ],
           [
-            80.3112,
-            26.4101
+            80.34,
+            26.4075
           ],
           [
-            80.3152,
-            26.4091
+            80.345,
+            26.4078
           ]
         ]
       }
@@ -69,7 +69,7 @@
         "place_id": "PL_PARK_001",
         "name": "Machhariya Community Park",
         "type": "park",
-        "area_id": "WARD_36_MICRO_2_SUB_1",
+        "area_id": "WARD_91",
         "address": "Machhariya, Naubasta"
       },
       "geometry": {
@@ -77,24 +77,24 @@
         "coordinates": [
           [
             [
-              80.2897,
-              26.4269
+              80.338,
+              26.411
             ],
             [
-              80.2919,
-              26.4279
+              80.34,
+              26.411
             ],
             [
-              80.2924,
-              26.4258
+              80.34,
+              26.4095
             ],
             [
-              80.2904,
-              26.4251
+              80.338,
+              26.4095
             ],
             [
-              80.2897,
-              26.4269
+              80.338,
+              26.411
             ]
           ]
         ]
@@ -106,32 +106,32 @@
         "place_id": "PL_PARK_002",
         "name": "Hanspuram Children Park",
         "type": "park",
-        "area_id": "SUBDIST_KANPUR_CITY",
-        "address": "Hanspuram Fringe"
+        "area_id": "WARD_39",
+        "address": "Hanspuram, Naubasta"
       },
       "geometry": {
         "type": "Polygon",
         "coordinates": [
           [
             [
-              80.3152,
-              26.4258
+              80.3265,
+              26.383
             ],
             [
-              80.3175,
-              26.4259
+              80.3285,
+              26.383
             ],
             [
-              80.3176,
-              26.4242
+              80.3285,
+              26.3815
             ],
             [
-              80.3155,
-              26.4239
+              80.3265,
+              26.3815
             ],
             [
-              80.3152,
-              26.4258
+              80.3265,
+              26.383
             ]
           ]
         ]
@@ -143,14 +143,14 @@
         "place_id": "PL_HOME_001",
         "name": "Residential Cluster A-17",
         "type": "home",
-        "area_id": "WARD_36_MICRO_2_SUB_1",
-        "address": "South Naubasta Lane 3"
+        "area_id": "WARD_30",
+        "address": "Naubasta Sector A, Kanpur"
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          80.2947,
-          26.4115
+          80.3305,
+          26.402
         ]
       }
     },
@@ -160,14 +160,14 @@
         "place_id": "PL_HOME_002",
         "name": "Residential Cluster C-04",
         "type": "home",
-        "area_id": "WARD_58_MICRO_1_SUB_1",
-        "address": "Ratanpur Corridor"
+        "area_id": "WARD_30",
+        "address": "Naubasta Sector C, Kanpur"
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          80.3137,
-          26.4076
+          80.333,
+          26.405
         ]
       }
     },
@@ -177,14 +177,14 @@
         "place_id": "PL_SHOP_001",
         "name": "Naubasta General Store",
         "type": "shop",
-        "area_id": "WARD_88_MICRO_1_SUB_2",
-        "address": "Naubasta Chowk"
+        "area_id": "WARD_30",
+        "address": "Naubasta Chowk, Kanpur"
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          80.3024,
-          26.4168
+          80.3316,
+          26.4055
         ]
       }
     },
@@ -194,14 +194,14 @@
         "place_id": "PL_SHOP_002",
         "name": "Galla Mandi Hardware",
         "type": "shop",
-        "area_id": "WARD_83_MICRO_2_SUB_2",
-        "address": "Galla Mandi Belt"
+        "area_id": "WARD_30",
+        "address": "Naubasta Galla Mandi, Kanpur"
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          80.3094,
-          26.4221
+          80.3275,
+          26.4035
         ]
       }
     },
@@ -211,14 +211,14 @@
         "place_id": "PL_STOP_001",
         "name": "Naubasta Bus Stop",
         "type": "public-place",
-        "area_id": "WARD_88_MICRO_1_SUB_1",
-        "address": "Naubasta Central"
+        "area_id": "WARD_30",
+        "address": "Naubasta Chauraha, Kanpur"
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          80.3002,
-          26.4207
+          80.332,
+          26.4065
         ]
       }
     },
@@ -228,14 +228,14 @@
         "place_id": "PL_SCHOOL_001",
         "name": "Hanspuram Public School",
         "type": "public-place",
-        "area_id": "WARD_58_MICRO_2_SUB_1",
-        "address": "Hanspuram Fringe"
+        "area_id": "WARD_39",
+        "address": "Hanspuram, Kanpur"
       },
       "geometry": {
         "type": "Point",
         "coordinates": [
-          80.3121,
-          26.4261
+          80.327,
+          26.382
         ]
       }
     }
