@@ -1133,15 +1133,24 @@ export default function Dashboard() {
     const map = mapInstance.current;
     if (!map) return;
 
-    const geom = feature.geometry;
     let coords = [];
-    if (geom.type === "Point") coords = [geom.coordinates[1], geom.coordinates[0]];
-    else if (geom.type === "LineString") coords = [geom.coordinates[0][1], geom.coordinates[0][0]];
-    else if (geom.type === "Polygon") coords = [geom.coordinates[0][0][1], geom.coordinates[0][0][0]];
+    if (feature.properties && feature.properties.center) {
+      // Backend center is [lng, lat], Leaflet needs [lat, lng]
+      coords = [feature.properties.center[1], feature.properties.center[0]];
+    } else if (feature.geometry) {
+      const geom = feature.geometry;
+      if (geom.type === "Point") coords = [geom.coordinates[1], geom.coordinates[0]];
+      else if (geom.type === "LineString") coords = [geom.coordinates[0][1], geom.coordinates[0][0]];
+      else if (geom.type === "Polygon") coords = [geom.coordinates[0][0][1], geom.coordinates[0][0][0]];
+      else if (geom.type === "MultiPolygon") coords = [geom.coordinates[0][0][0][1], geom.coordinates[0][0][0][0]];
+      else if (geom.type === "MultiLineString") coords = [geom.coordinates[0][0][1], geom.coordinates[0][0][0]];
+    }
 
-    map.flyTo(coords, 16, { duration: 0.8 });
-    setSelectedLatlng({ lat: coords[0], lng: coords[1] });
-    await resolveAndRenderPlace(coords[0], coords[1]);
+    if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+      map.flyTo(coords, 16, { duration: 0.8 });
+      setSelectedLatlng({ lat: coords[0], lng: coords[1] });
+      await resolveAndRenderPlace(coords[0], coords[1]);
+    }
   };
 
   const scoreToColor = (score) => {
