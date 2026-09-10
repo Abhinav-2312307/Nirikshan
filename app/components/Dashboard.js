@@ -103,6 +103,9 @@ export default function Dashboard() {
   const labelLayerRef = useRef(null);
   const fetchedAreasCache = useRef({});
   const currentAqiLevelRef = useRef(null);
+  const placesCacheRef = useRef([]);
+  const zoomDebounceRef = useRef(null);
+  const [bgSyncStatus, setBgSyncStatus] = useState("ready"); // "ready" | "syncing"
 
   useEffect(() => {
     // Attach L to window so leaflet plugins can find it
@@ -124,7 +127,8 @@ export default function Dashboard() {
       const map = L.map(mapRef.current, {
         zoomControl: true,
         minZoom: 3,
-        maxZoom: 18
+        maxZoom: 18,
+        preferCanvas: true // Hardware-accelerated canvas rendering for vector polygons
       }).setView([26.4069, 80.3315], 14);
 
       const tiles = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
@@ -154,8 +158,9 @@ export default function Dashboard() {
         await resolveAndRenderPlace(e.latlng.lat, e.latlng.lng);
       });
 
-      // Trigger initial load
-      refreshAqiLayer("india-states");
+      // Trigger initial load: dynamically pick level matching zoom 14 (macro wards ~120KB vs 2MB)
+      refreshAqiLayer();
+      startBackgroundStreaming();
       loadPlacesLayer();
       refreshMetrics();
       refreshComplaints();
@@ -185,6 +190,9 @@ export default function Dashboard() {
     }
 
     return () => {
+      if (zoomDebounceRef.current) {
+        clearTimeout(zoomDebounceRef.current);
+      }
       if (mapInstance.current) {
         if (mapInstance.current._resizeObserver) {
           mapInstance.current._resizeObserver.disconnect();
@@ -515,6 +523,65 @@ export default function Dashboard() {
     }
   };
 
+  const startBackgroundStreaming = () => {
+    if (typeof window === "undefined") return;
+
+    // Progressive queue: immediate neighbors first, then places, then macro/states
+    const queue = [
+      { type: "area", level: "micro" },
+      { type: "area", level: "kanpur-subdistricts" },
+      { type: "places", limit: 100 },
+      { type: "area", level: "submicro" },
+      { type: "area", level: "up-districts" },
+      { type: "area", level: "india-states" }
+    ];
+
+    setBgSyncStatus("syncing");
+
+    const processNext = () => {
+      if (!queue.length) {
+        setBgSyncStatus("ready");
+        return;
+      }
+
+      const executeTask = async () => {
+        const item = queue.shift();
+        try {
+          if (item.type === "area") {
+            if (!fetchedAreasCache.current[item.level]) {
+              const fetchPromise = api(`/api/areas?level=${item.level}`);
+              fetchedAreasCache.current[item.level] = fetchPromise;
+              const res = await fetchPromise;
+              fetchedAreasCache.current[item.level] = res;
+            }
+          } else if (item.type === "places") {
+            if (!placesCacheRef.current || placesCacheRef.current.length === 0) {
+              const res = await api(`/api/places?limit=${item.limit}`);
+              placesCacheRef.current = res.features || [];
+            }
+          }
+        } catch (err) {
+          console.warn("Background streaming item non-critical error:", err);
+        }
+
+        if ("requestIdleCallback" in window) {
+          window.requestIdleCallback(() => processNext(), { timeout: 2500 });
+        } else {
+          setTimeout(processNext, 250);
+        }
+      };
+
+      if ("requestIdleCallback" in window) {
+        window.requestIdleCallback(() => executeTask(), { timeout: 2500 });
+      } else {
+        setTimeout(executeTask, 250);
+      }
+    };
+
+    // Defer background prefetching slightly to let initial paint and map tiles load with zero contention
+    setTimeout(processNext, 800);
+  };
+
   const refreshAqiLayer = async (level = null, force = false) => {
     const map = mapInstance.current;
     if (!map) return;
@@ -536,9 +603,11 @@ export default function Dashboard() {
 
     let data;
     if (!force && fetchedAreasCache.current[level]) {
-      data = fetchedAreasCache.current[level];
+      data = await fetchedAreasCache.current[level];
     } else {
-      data = await api(`/api/areas?level=${level}`);
+      const fetchPromise = api(`/api/areas?level=${level}`);
+      fetchedAreasCache.current[level] = fetchPromise;
+      data = await fetchPromise;
       fetchedAreasCache.current[level] = data;
     }
     const activeMap = mapInstance.current;
@@ -822,9 +891,12 @@ export default function Dashboard() {
     );
   };
 
-  const handleZoomEnd = async () => {
+  const handleZoomEnd = () => {
     if (activeModeRef.current !== "aqi" && activeModeRef.current !== "heatmap") return;
-    await refreshAqiLayer();
+    if (zoomDebounceRef.current) clearTimeout(zoomDebounceRef.current);
+    zoomDebounceRef.current = setTimeout(async () => {
+      await refreshAqiLayer();
+    }, 150);
   };
 
   const refreshComplaints = async () => {
@@ -1132,41 +1204,12 @@ export default function Dashboard() {
       setSearchResults([]);
       return;
     }
-
-    searchTimeoutRef.current = setTimeout(async () => {
-      try {
-        const localRes = await api(`/api/places?q=${encodeURIComponent(q)}&limit=8`);
-        let combinedFeatures = localRes.features || [];
-
-        // Fetch from external map API (Nominatim)
-        try {
-          const nominatimRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=geojson&addressdetails=1&limit=5`);
-          if (nominatimRes.ok) {
-            const nominatimData = await nominatimRes.json();
-            if (nominatimData.features) {
-              const mappedNominatim = nominatimData.features.map(f => ({
-                type: "Feature",
-                geometry: f.geometry,
-                properties: {
-                  place_id: "ext_" + f.properties.place_id,
-                  name: f.properties.name || f.properties.display_name.split(',')[0],
-                  type: f.properties.type || "place",
-                  address: f.properties.display_name,
-                  center: null // allow geometry fallback to handle center
-                }
-              }));
-              combinedFeatures = [...combinedFeatures, ...mappedNominatim];
-            }
-          }
-        } catch (nomErr) {
-          console.error("Nominatim search failed:", nomErr);
-        }
-
-        setSearchResults(combinedFeatures);
-      } catch (err) {
-        console.error(err);
-      }
-    }, 400);
+    try {
+      const res = await api(`/api/places?q=${encodeURIComponent(q)}&limit=8`);
+      setSearchResults(res.features || []);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const selectSearchResult = async (feature) => {
@@ -1350,6 +1393,11 @@ export default function Dashboard() {
           )}
 
           <div ref={mapRef} id="map"></div>
+
+          <div className="map-perf-badge" title="Hardware accelerated canvas & progressive background streaming">
+            <span className={`sync-dot ${bgSyncStatus}`}></span>
+            <span>{bgSyncStatus === "syncing" ? "⚡ Streaming background areas..." : "⚡ Fast Vector Engine • Active"}</span>
+          </div>
 
           <button 
             className={`btn-keyboard ${showShortcuts ? "active" : ""}`} 

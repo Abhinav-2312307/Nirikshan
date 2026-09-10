@@ -5,10 +5,11 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q") || "";
   const type = searchParams.get("type") || "";
+  const bbox = searchParams.get("bbox") || "";
   const limit = Math.max(1, Math.min(200, Number(searchParams.get("limit")) || 200));
 
   try {
-    const data = await listPlaces({ q, type, limit });
+    const data = await listPlaces({ q, type, limit, bbox });
     return NextResponse.json(data);
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -8,6 +8,7 @@ import {
   centerOfFeature
 } from "../utils/geo";
 import { getAreas } from "../repositories/dataRepository";
+import { invalidateAreaCache } from "./areaService";
 
 const STATUS_FLOW = ["Submitted", "Verified", "Assigned", "In Progress", "Resolved", "Closed"];
 
@@ -99,12 +100,59 @@ export async function listPlaces(filters = {}) {
       { "properties.type": { $regex: q, $options: "i" } }
     ];
   }
+  if (filters.bbox) {
+    const parts = filters.bbox.split(",").map(Number);
+    if (parts.length === 4 && parts.every(n => !isNaN(n))) {
+      const [minLon, minLat, maxLon, maxLat] = parts;
+      query["location"] = {
+        $geoWithin: {
+          $box: [
+            [minLon, minLat],
+            [maxLon, maxLat]
+          ]
+        }
+      };
+    }
+  }
 
   const placesList = await db.collection("places").find(query).limit(filters.limit || 200).toArray();
   
+  // Batch metric queries rather than sequential loop
+  const placeIds = placesList.map(f => f.properties?.place_id).filter(Boolean);
+  let reviewsList = [];
+  let complaintsList = [];
+  if (placeIds.length > 0) {
+    [reviewsList, complaintsList] = await Promise.all([
+      db.collection("reviews").find({ place_id: { $in: placeIds } }).toArray(),
+      db.collection("complaints").find({ place_id: { $in: placeIds } }).toArray()
+    ]);
+  }
+
+  const reviewsByPlace = new Map();
+  for (const r of reviewsList) {
+    if (!reviewsByPlace.has(r.place_id)) reviewsByPlace.set(r.place_id, []);
+    reviewsByPlace.get(r.place_id).push(r);
+  }
+
+  const complaintsByPlace = new Map();
+  for (const c of complaintsList) {
+    if (!complaintsByPlace.has(c.place_id)) complaintsByPlace.set(c.place_id, []);
+    complaintsByPlace.get(c.place_id).push(c);
+  }
+
   const features = [];
   for (const f of placesList) {
-    const metrics = await getPlaceMetrics(f.properties.place_id);
+    const pId = f.properties?.place_id;
+    const revs = reviewsByPlace.get(pId) || [];
+    const comps = complaintsByPlace.get(pId) || [];
+    const open = comps.filter((c) => !["Resolved", "Closed"].includes(c.status) && c.status !== "Moderation");
+    const metrics = {
+      avg_rating: revs.length ? Number(average(revs.map((r) => r.rating)).toFixed(1)) : 0,
+      review_count: revs.length,
+      complaint_count: comps.length,
+      pending_complaints: open.length
+    };
+
     features.push({
       type: "Feature",
       properties: {
@@ -216,6 +264,7 @@ export async function addReview(placeId, payload) {
   };
 
   await db.collection("reviews").insertOne(review);
+  invalidateAreaCache();
   return review;
 }
 
@@ -381,6 +430,7 @@ export async function addComplaint(placeFeature, payload) {
   };
 
   await db.collection("complaints").insertOne(complaint);
+  invalidateAreaCache();
   return complaint;
 }
 
