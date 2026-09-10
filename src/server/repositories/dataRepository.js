@@ -19,6 +19,10 @@ function readJson(fileName, fallback) {
   }
 }
 
+export function clearCache() {
+  cache.clear();
+}
+
 function writeJson(fileName, value) {
   const filePath = path.join(DATA_DIR, fileName);
   fs.writeFileSync(filePath, JSON.stringify(value, null, 2));

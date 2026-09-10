@@ -318,6 +318,20 @@ export default function Dashboard() {
           handled = true;
           break;
 
+        // Quick fly to Lucknow Wards
+        case "l":
+        case "L":
+          map.flyTo([26.8467, 80.9462], 13);
+          handled = true;
+          break;
+
+        // Quick fly to Kanpur Wards
+        case "k":
+        case "K":
+          map.flyTo([26.4499, 80.3319], 13);
+          handled = true;
+          break;
+
         // Map mode switches
         case "1":
           setActiveMode("explore");
@@ -1263,6 +1277,36 @@ export default function Dashboard() {
                 </button>
               </div>
             </div>
+
+            <div className="city-toggle-container" style={{ marginTop: "10px", borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: "8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "0.8rem", color: "rgba(255, 255, 255, 0.7)", fontWeight: "500" }}>Focus City:</span>
+              <div className="mode-buttons" style={{ gap: "6px" }}>
+                <button 
+                  className="mode-btn" 
+                  onClick={() => {
+                    if (mapInstance.current) {
+                      mapInstance.current.flyTo([26.4499, 80.3319], 13, { duration: 1.2 });
+                    }
+                  }}
+                  style={{ fontSize: "0.74rem", padding: "4px 9px" }}
+                  title="Fly to Kanpur Wards"
+                >
+                  🏭 Kanpur
+                </button>
+                <button 
+                  className="mode-btn" 
+                  onClick={() => {
+                    if (mapInstance.current) {
+                      mapInstance.current.flyTo([26.8467, 80.9462], 13, { duration: 1.2 });
+                    }
+                  }}
+                  style={{ fontSize: "0.74rem", padding: "4px 9px" }}
+                  title="Fly to Lucknow Wards"
+                >
+                  🏛️ Lucknow
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Live Location Preview HUD */}
@@ -1653,6 +1697,8 @@ export default function Dashboard() {
                     <option value="citizen">👤 Public View (Leaderboards & Analytics)</option>
                     <option value="KNN">🏢 Kanpur Nagar Nigam (Officer Console)</option>
                     <option value="KDA">📐 Kanpur Development Authority (Officer Console)</option>
+                    <option value="LNN">🏢 Lucknow Nagar Nigam (Officer Console)</option>
+                    <option value="LDA">📐 Lucknow Development Authority (Officer Console)</option>
                     <option value="JAL">🚰 Jal Kal Vibhag (Officer Console)</option>
                   </select>
                 </label>
