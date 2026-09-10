@@ -47,5 +47,41 @@
       "Sewer": "Sewer Operations",
       "Encroachment": "Inspection"
     }
+  },
+  {
+    "authority_id": "LNN",
+    "name": "Lucknow Nagar Nigam",
+    "departments": {
+      "Pothole": "Roads & Civil Maintenance",
+      "Streetlight": "Street Lighting & Electricals",
+      "Garbage": "Solid Waste & Sanitation",
+      "Safety": "Civic Protection",
+      "Water": "Municipal Water Services",
+      "Sewer": "Drainage & Sewer Operations",
+      "Encroachment": "Anti-Encroachment Wing"
+    },
+    "metrics": {
+      "score": 68,
+      "total_resolved": 12,
+      "total_disputed": 1
+    }
+  },
+  {
+    "authority_id": "LDA",
+    "name": "Lucknow Development Authority",
+    "departments": {
+      "Pothole": "Master Road Projects",
+      "Streetlight": "Smart City Lighting",
+      "Garbage": "Urban Sanitation",
+      "Safety": "Town Safety & Planning",
+      "Water": "Urban Storm Drainage",
+      "Sewer": "Sewer Master Planning",
+      "Encroachment": "Town Planning Enforcement"
+    },
+    "metrics": {
+      "score": 72,
+      "total_resolved": 15,
+      "total_disputed": 0
+    }
   }
 ]

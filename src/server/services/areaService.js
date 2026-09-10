@@ -12,30 +12,8 @@ function scoreToStatus(score) {
   return "Critical";
 }
 
-export function computeAreaScore(areaFeature, level, reviews, complaints, places, areaParentMap) {
-  const areaId = areaFeature.properties.area_id;
+export function computeAreaScoreDirect(areaFeature, level, areaReviews, areaComplaints) {
   const baseScore = areaFeature.properties.base_score || 50;
-
-  const placesMap = new Map(places.map(p => [p.properties.place_id, p]));
-
-  const isMatch = (itemAreaId) => {
-    if (!itemAreaId) return false;
-    let current = itemAreaId;
-    // Walk up the parent map (max depth 10 to prevent cycles)
-    for (let i = 0; i < 10; i++) {
-      if (current === areaId) return true;
-      const nextParent = areaParentMap.get(current);
-      if (!nextParent || nextParent === current) break;
-      current = nextParent;
-    }
-    return false;
-  };
-
-  const areaComplaints = complaints.filter(c => isMatch(c.area_id));
-  const areaReviews = reviews.filter(r => {
-    const place = placesMap.get(r.place_id);
-    return place && isMatch(place.properties.area_id || place.area_id);
-  });
 
   // 1. Citizen Rating Score R_a(t) - (40%)
   const avgRating = areaReviews.length ? (areaReviews.reduce((sum, r) => sum + r.rating, 0) / areaReviews.length) : null;
@@ -83,10 +61,31 @@ export function computeAreaScore(areaFeature, level, reviews, complaints, places
   return clamp(finalScore, 0, 100);
 }
 
-let cachedAreaParentMap = null;
+// Kept for backward compatibility
+export function computeAreaScore(areaFeature, level, reviews, complaints, placesMap, ancestorSetMap) {
+  const areaId = areaFeature.properties.area_id;
+  const isMatch = (itemAreaId) => {
+    if (!itemAreaId) return false;
+    if (itemAreaId === areaId) return true;
+    const ancestors = ancestorSetMap.get(itemAreaId);
+    return ancestors ? ancestors.has(areaId) : false;
+  };
+  const areaComplaints = complaints.filter(c => isMatch(c.area_id));
+  const areaReviews = reviews.filter(r => {
+    if (isMatch(r.place_id)) return true;
+    const place = placesMap.get(r.place_id);
+    return place && isMatch(place.properties?.area_id || place.area_id);
+  });
+  return computeAreaScoreDirect(areaFeature, level, areaReviews, areaComplaints);
+}
 
-function getAreaParentMap() {
-  if (cachedAreaParentMap) return cachedAreaParentMap;
+let cachedAreaParentMap = null;
+let cachedAncestorSetMap = null;
+
+function getAreaHierarchy() {
+  if (cachedAreaParentMap && cachedAncestorSetMap) {
+    return { areaParentMap: cachedAreaParentMap, ancestorSetMap: cachedAncestorSetMap };
+  }
 
   const map = new Map();
   
@@ -97,39 +96,117 @@ function getAreaParentMap() {
   const submicroFeatures = getAreas("submicro").features || [];
 
   distFeatures.forEach(f => {
-    if (f.properties.parent_area_id) map.set(f.properties.area_id, f.properties.parent_area_id);
+    if (f.properties?.parent_area_id) map.set(f.properties.area_id, f.properties.parent_area_id);
   });
   subdistFeatures.forEach(f => {
-    if (f.properties.parent_area_id) map.set(f.properties.area_id, f.properties.parent_area_id);
+    if (f.properties?.parent_area_id) map.set(f.properties.area_id, f.properties.parent_area_id);
   });
   macroFeatures.forEach(f => {
-    if (f.properties.parent_area_id) map.set(f.properties.area_id, f.properties.parent_area_id);
+    if (f.properties?.parent_area_id) map.set(f.properties.area_id, f.properties.parent_area_id);
   });
   microFeatures.forEach(f => {
-    if (f.properties.parent_area_id) map.set(f.properties.area_id, f.properties.parent_area_id);
+    if (f.properties?.parent_area_id) map.set(f.properties.area_id, f.properties.parent_area_id);
   });
   submicroFeatures.forEach(f => {
-    if (f.properties.parent_area_id) map.set(f.properties.area_id, f.properties.parent_area_id);
+    if (f.properties?.parent_area_id) map.set(f.properties.area_id, f.properties.parent_area_id);
   });
 
+  const ancestorMap = new Map();
+  for (const id of map.keys()) {
+    const set = new Set([id]);
+    let curr = id;
+    for (let i = 0; i < 10; i++) {
+      const p = map.get(curr);
+      if (!p || p === curr) break;
+      set.add(p);
+      curr = p;
+    }
+    ancestorMap.set(id, set);
+  }
+
   cachedAreaParentMap = map;
-  return map;
+  cachedAncestorSetMap = ancestorMap;
+  return { areaParentMap: map, ancestorSetMap: ancestorMap };
+}
+
+const DB_CACHE_TTL_MS = 600000; // 10 minutes
+
+async function getDbData() {
+  const now = Date.now();
+  if (global._areaServiceCachedDbData && (now - (global._areaServiceCachedDbDataTime || 0) < DB_CACHE_TTL_MS)) {
+    return global._areaServiceCachedDbData;
+  }
+  const { db } = await connectToDatabase();
+  const [places, reviews, complaints] = await Promise.all([
+    db.collection("places").find({}, { projection: { "properties.place_id": 1, "properties.area_id": 1, area_id: 1, place_id: 1 } }).toArray(),
+    db.collection("reviews").find({}, { projection: { place_id: 1, rating: 1 } }).toArray(),
+    db.collection("complaints").find({}, { projection: { area_id: 1, status: 1, created_at: 1, updated_at: 1 } }).toArray()
+  ]);
+  const data = { places, reviews, complaints };
+  global._areaServiceCachedDbData = data;
+  global._areaServiceCachedDbDataTime = now;
+  return data;
+}
+
+export function invalidateAreaCache() {
+  global._areaServiceCachedDbData = null;
+  global._areaServiceCachedDbDataTime = 0;
 }
 
 export async function listAreas(level) {
   const dataset = getAreas(level);
-  
-  const { db } = await connectToDatabase();
-  const places = await db.collection("places").find({}).toArray();
-  const reviews = await db.collection("reviews").find({}).toArray();
-  const complaints = await db.collection("complaints").find({}).toArray();
+  const { places, reviews, complaints } = await getDbData();
 
-  const areaParentMap = getAreaParentMap();
+  const placesMap = new Map(places.map(p => [p.properties?.place_id || p.place_id, p]));
+  const { ancestorSetMap } = getAreaHierarchy();
+
+  // Inverted index for O(1) grouping across areas
+  const complaintsByArea = new Map();
+  for (const c of complaints) {
+    if (!c.area_id) continue;
+    const ancestors = ancestorSetMap.get(c.area_id);
+    if (ancestors) {
+      for (const a of ancestors) {
+        let arr = complaintsByArea.get(a);
+        if (!arr) complaintsByArea.set(a, arr = []);
+        arr.push(c);
+      }
+    } else {
+      let arr = complaintsByArea.get(c.area_id);
+      if (!arr) complaintsByArea.set(c.area_id, arr = []);
+      arr.push(c);
+    }
+  }
+
+  const reviewsByArea = new Map();
+  for (const r of reviews) {
+    let targetAreaId = r.place_id;
+    if (placesMap.has(r.place_id)) {
+      const p = placesMap.get(r.place_id);
+      targetAreaId = p?.properties?.area_id || p?.area_id || r.place_id;
+    }
+    if (!targetAreaId) continue;
+    const ancestors = ancestorSetMap.get(targetAreaId);
+    if (ancestors) {
+      for (const a of ancestors) {
+        let arr = reviewsByArea.get(a);
+        if (!arr) reviewsByArea.set(a, arr = []);
+        arr.push(r);
+      }
+    } else {
+      let arr = reviewsByArea.get(targetAreaId);
+      if (!arr) reviewsByArea.set(targetAreaId, arr = []);
+      arr.push(r);
+    }
+  }
 
   return {
     type: "FeatureCollection",
     features: dataset.features.map((feature) => {
-      const score = computeAreaScore(feature, level, reviews, complaints, places, areaParentMap);
+      const areaId = feature.properties.area_id;
+      const areaComplaints = complaintsByArea.get(areaId) || [];
+      const areaReviews = reviewsByArea.get(areaId) || [];
+      const score = computeAreaScoreDirect(feature, level, areaReviews, areaComplaints);
       return {
         ...feature,
         properties: {
