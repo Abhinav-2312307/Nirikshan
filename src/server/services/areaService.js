@@ -148,15 +148,12 @@ async function getDbData() {
   return data;
 }
 
-export function invalidateAreaCache() {
-  global._areaServiceCachedDbData = null;
-  global._areaServiceCachedDbDataTime = 0;
-}
-
 const areaScoreCache = new Map();
 const AREA_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 export function invalidateAreaCache() {
+  global._areaServiceCachedDbData = null;
+  global._areaServiceCachedDbDataTime = 0;
   areaScoreCache.clear();
 }
 
