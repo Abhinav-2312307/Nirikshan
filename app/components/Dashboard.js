@@ -47,12 +47,60 @@ export default function Dashboard() {
   const [userTrustScore, setUserTrustScore] = useState(50);
   const [userVerifiedOtp, setUserVerifiedOtp] = useState(false);
   const [userVerifiedAadhaar, setUserVerifiedAadhaar] = useState(false);
-  const [userId] = useState("demo-citizen-101");
-  const [authorityRole, setAuthorityRole] = useState("citizen"); // "citizen" | "KNN" | "KDA" | "JAL"
+  const [userId, setUserId] = useState("demo-citizen-101");
+  const [citizenUser, setCitizenUser] = useState(null);
+  const [showCitizenModal, setShowCitizenModal] = useState(false);
+  const [citizenEmail, setCitizenEmail] = useState("rahul.sharma@example.com");
+  const [citizenPassword, setCitizenPassword] = useState("citizen123");
+  const [citizenAuthError, setCitizenAuthError] = useState("");
+  const [authorityRole, setAuthorityRole] = useState("citizen");
   const [viewModerationQueue, setViewModerationQueue] = useState(false);
   const [mapTheme, setMapTheme] = useState("dark"); // "dark" | "street"
   const [isLocating, setIsLocating] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("nirikshan_citizen_user");
+    if (saved) {
+      try {
+        const u = JSON.parse(saved);
+        setCitizenUser(u);
+        setUserId(u.user_id || "demo-citizen-101");
+        setUserTrustScore(u.trust_score || 85);
+      } catch (e) {}
+    }
+  }, []);
+
+  const handleCitizenAuth = async (overrideEmail, overridePass) => {
+    setCitizenAuthError("");
+    const targetEmail = overrideEmail || citizenEmail;
+    const targetPass = overridePass || citizenPassword;
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: targetEmail, password: targetPass, role: "citizen" })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Login failed");
+      localStorage.setItem("nirikshan_citizen_user", JSON.stringify(data.user));
+      localStorage.setItem("nirikshan_citizen_token", data.token);
+      setCitizenUser(data.user);
+      setUserId(data.user.user_id);
+      setUserTrustScore(data.user.trust_score || 85);
+      setShowCitizenModal(false);
+    } catch (err) {
+      setCitizenAuthError(err.message);
+    }
+  };
+
+  const handleCitizenLogout = () => {
+    localStorage.removeItem("nirikshan_citizen_user");
+    localStorage.removeItem("nirikshan_citizen_token");
+    setCitizenUser(null);
+    setUserId("demo-citizen-101");
+    setUserTrustScore(50);
+  };
 
   // Keep refs of active mode and active tab to prevent stale closures in Leaflet events
   const activeTabRef = useRef(activeTab);
@@ -1277,10 +1325,42 @@ export default function Dashboard() {
           )}
         </div>
 
-        <nav className="nav-links">
+        <nav className="nav-links" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <button className={`nav-btn ${activeTab === "map" ? "active" : ""}`} onClick={() => setActiveTab("map")}>Map Explorer</button>
-          <button className={`nav-btn ${activeTab === "citizen" ? "active" : ""}`} onClick={() => setActiveTab("citizen")}>Citizen Dashboard</button>
-          <button className={`nav-btn ${activeTab === "governance" ? "active" : ""}`} onClick={() => setActiveTab("governance")}>Governance Console</button>
+          <button className={`nav-btn ${activeTab === "citizen" ? "active" : ""}`} onClick={() => setActiveTab("citizen")}>Citizen Grievances</button>
+          <button className={`nav-btn ${activeTab === "governance" ? "active" : ""}`} onClick={() => setActiveTab("governance")}>Authority Transparency</button>
+
+          {citizenUser ? (
+            <div className="citizen-pill" style={{ display: "flex", alignItems: "center", gap: "8px", background: "rgba(30, 41, 59, 0.8)", border: "1px solid rgba(51, 65, 85, 0.8)", borderRadius: "8px", padding: "4px 10px", fontSize: "0.75rem" }}>
+              <span style={{ color: "#38bdf8", fontWeight: "600" }}>👤 {citizenUser.name}</span>
+              <span style={{ color: "#34d399", fontSize: "0.7rem", fontFamily: "monospace" }}>⭐ {userTrustScore}</span>
+              <button onClick={handleCitizenLogout} style={{ background: "transparent", border: "none", color: "#f87171", cursor: "pointer", fontSize: "0.7rem", padding: "0 2px" }} title="Sign Out">✕</button>
+            </div>
+          ) : (
+            <button className="nav-btn" onClick={() => setShowCitizenModal(true)} style={{ background: "rgba(56, 189, 248, 0.15)", border: "1px solid rgba(56, 189, 248, 0.4)", color: "#38bdf8", fontSize: "0.78rem" }}>
+              👤 Citizen Sign In
+            </button>
+          )}
+
+          <a
+            href="/officer/login"
+            className="nav-btn officer-portal-btn"
+            style={{
+              background: "linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(234, 88, 12, 0.2))",
+              border: "1px solid rgba(245, 158, 11, 0.5)",
+              color: "#fcd34d",
+              fontWeight: "bold",
+              fontSize: "0.78rem",
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "4px",
+              boxShadow: "0 2px 8px rgba(245, 158, 11, 0.15)"
+            }}
+          >
+            <span>🏛️ Official Officer Portal</span>
+            <span>→</span>
+          </a>
         </nav>
       </header>
 
@@ -1738,18 +1818,41 @@ export default function Dashboard() {
 
           {activeTab === "governance" && (
             <div id="view-governance" className="panel-view active">
-              <div className="card role-card">
-                <h3>Jurisdiction Access Control</h3>
-                <label>Select Authority Session
-                  <select value={authorityRole} onChange={(e) => setAuthorityRole(e.target.value)} id="role-selector">
-                    <option value="citizen">👤 Public View (Leaderboards & Analytics)</option>
-                    <option value="KNN">🏢 Kanpur Nagar Nigam (Officer Console)</option>
-                    <option value="KDA">📐 Kanpur Development Authority (Officer Console)</option>
-                    <option value="LNN">🏢 Lucknow Nagar Nigam (Officer Console)</option>
-                    <option value="LDA">📐 Lucknow Development Authority (Officer Console)</option>
-                    <option value="JAL">🚰 Jal Kal Vibhag (Officer Console)</option>
-                  </select>
-                </label>
+              {/* Official Government Officer Portal Notice */}
+              <div className="card role-card" style={{ background: "linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(15, 23, 42, 0.95))", border: "1px solid rgba(245, 158, 11, 0.35)", padding: "16px", borderRadius: "12px", marginBottom: "16px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
+                  <div>
+                    <span style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "1px", color: "#f59e0b", fontWeight: "bold", display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span>🛡️</span>
+                      <span>Administrative Officer Console</span>
+                    </span>
+                    <h3 style={{ margin: "4px 0 2px 0", fontSize: "1.05rem", color: "#ffffff", fontWeight: "bold" }}>
+                      Government Grievance Command Portal
+                    </h3>
+                    <p style={{ margin: 0, fontSize: "0.78rem", color: "#94a3b8" }}>
+                      Administrative officers have a separate, dedicated command site with hierarchy controls, jurisdiction maps, inter-department memos, and budget approvals.
+                    </p>
+                  </div>
+                  <a
+                    href="/officer/login"
+                    style={{
+                      background: "linear-gradient(to right, #f59e0b, #ea580c)",
+                      color: "#020617",
+                      fontWeight: "bold",
+                      fontSize: "0.82rem",
+                      padding: "8px 16px",
+                      borderRadius: "8px",
+                      textDecoration: "none",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      boxShadow: "0 4px 12px rgba(245, 158, 11, 0.25)"
+                    }}
+                  >
+                    <span>Officer Portal Login</span>
+                    <span>→</span>
+                  </a>
+                </div>
               </div>
 
               {/* Leaderboard */}
@@ -1792,72 +1895,6 @@ export default function Dashboard() {
                 </ul>
               </div>
 
-              {/* Officer Workspace */}
-              {authorityRole !== "citizen" && (
-                <div className="card officer-workspace" id="officer-panel">
-                  <div className="workspace-header flex justify-between items-center mb-2">
-                    <h3 id="officer-workspace-title">{authorityRole} Officer Workspace</h3>
-                    <span className="badge-active-jurisdiction bg-green-500/10 text-green-400 border border-green-500/20 px-2 py-0.5 rounded text-[0.7rem]">Admin Jurisdiction Active</span>
-                  </div>
-                  
-                  <div className="workspace-desc alert-info text-[0.74rem]">
-                    🚫 Complaints are permanently recorded in the civic ledger and cannot be deleted. All state transitions are logged.
-                  </div>
-
-                  <div className="complaints-filter-group mt-2">
-                    <label className="text-[0.8rem] flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={viewModerationQueue}
-                        onChange={(e) => setViewModerationQueue(e.target.checked)}
-                        id="chk-moderation-queue"
-                      />
-                      View Pending AI Moderation Queue
-                    </label>
-                  </div>
-
-                  <div className="officer-complaints-box mt-3">
-                    <h4 className="text-[0.9rem] font-medium border-b border-slate-800 pb-1 mb-2">Assigned Civic Complaints</h4>
-                    <ul id="officer-complaints-list" className="stack-list">
-                      {officerComplaints.length === 0 ? (
-                        <li className="muted text-center py-3">No pending complaints assigned to this jurisdiction.</li>
-                      ) : (
-                        officerComplaints.map((c, i) => (
-                          <li key={i} className={c.escalated ? "escalated-pulse" : ""}>
-                            <strong>
-                              <span>{ISSUE_ICONS[c.issue_type] || "📍"} {c.issue_type} - {c.place_name}</span>
-                              <span className={`badge-status ${c.status.toLowerCase().replace(" ", "")}`}>{c.status}</span>
-                            </strong>
-                            <p>{c.description}</p>
-                            <p className="text-[0.72rem] text-slate-400">trust score: {c.user_trust_score}</p>
-                            <div className="mt-2 flex gap-1 justify-end">
-                              {c.status === "Submitted" && (
-                                <button onClick={() => handleStatusAdvance(c.complaint_id, "Verified")} className="btn-verify py-1 px-2 w-auto mt-0">Verify Issue</button>
-                              )}
-                              {c.status === "Verified" && (
-                                <button onClick={() => handleStatusAdvance(c.complaint_id, "Assigned")} className="btn-verify py-1 px-2 w-auto mt-0">Assign Team</button>
-                              )}
-                              {c.status === "Assigned" && (
-                                <button onClick={() => handleStatusAdvance(c.complaint_id, "In Progress")} className="btn-verify py-1 px-2 w-auto mt-0">Start Work</button>
-                              )}
-                              {c.status === "In Progress" && (
-                                <button onClick={() => handleStatusAdvance(c.complaint_id, "Resolved")} className="btn-verify py-1 px-2 w-auto mt-0">Mark Resolved</button>
-                              )}
-                              {c.status === "Moderation" && (
-                                <>
-                                  <button onClick={() => handleStatusAdvance(c.complaint_id, "Submitted")} className="btn-confirm py-1 px-2 w-auto mt-0">Approve</button>
-                                  <button onClick={() => handleStatusAdvance(c.complaint_id, "Closed")} className="btn-dispute py-1 px-2 w-auto mt-0">Reject</button>
-                                </>
-                              )}
-                            </div>
-                          </li>
-                        ))
-                      )}
-                    </ul>
-                  </div>
-                </div>
-              )}
-
               {/* CSV Export */}
               <div className="card export-card">
                 <h3>Civic Data Analytics Portal</h3>
@@ -1873,6 +1910,96 @@ export default function Dashboard() {
           )}
         </aside>
       </main>
+
+      {/* Citizen Authentication Modal */}
+      {showCitizenModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">👤</span>
+                <h3 className="text-sm font-bold text-white">Citizen Sign In & Registration</h3>
+              </div>
+              <button onClick={() => setShowCitizenModal(false)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+
+            {citizenAuthError && (
+              <div className="p-2.5 rounded bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
+                ⚠️ {citizenAuthError}
+              </div>
+            )}
+
+            {/* 1-Click Citizen Presets for Instant Testing */}
+            <div>
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">
+                ⚡ Quick Citizen Test Profiles
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleCitizenAuth("rahul.sharma@example.com", "citizen123")}
+                  className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-cyan-500/50 text-left transition-colors group"
+                >
+                  <span className="text-xs font-bold text-white block group-hover:text-cyan-300">Rahul Sharma</span>
+                  <span className="text-[10px] text-slate-400">Hazratganj, Lucknow</span>
+                  <span className="text-[9px] text-emerald-400 block mt-0.5">85 Trust Score</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCitizenAuth("priya.verma@example.com", "citizen123")}
+                  className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-cyan-500/50 text-left transition-colors group"
+                >
+                  <span className="text-xs font-bold text-white block group-hover:text-cyan-300">Priya Verma</span>
+                  <span className="text-[10px] text-slate-400">Naubasta, Kanpur</span>
+                  <span className="text-[9px] text-emerald-400 block mt-0.5">90 Trust Score</span>
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={(e) => { e.preventDefault(); handleCitizenAuth(); }} className="space-y-3 pt-2 border-t border-slate-800">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1">Email Address</label>
+                <input
+                  type="email"
+                  value={citizenEmail}
+                  onChange={(e) => setCitizenEmail(e.target.value)}
+                  required
+                  placeholder="your.email@example.com"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-200"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1">Password</label>
+                <input
+                  type="password"
+                  value={citizenPassword}
+                  onChange={(e) => setCitizenPassword(e.target.value)}
+                  required
+                  placeholder="••••••••"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-200"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCitizenModal(false)}
+                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20"
+                >
+                  Sign In
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 }

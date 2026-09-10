@@ -1,0 +1,36 @@
+[
+  {
+    "id": "MEMO-2026-101",
+    "memo_no": "KNN/ENG/MEMO/2026/0412",
+    "sender_id": "OFF-WD-001",
+    "sender_name": "Er. Manoj Bajpai",
+    "sender_designation": "Ward Junior Engineer, Ward 88",
+    "sender_dept": "Kanpur Nagar Nigam",
+    "recipient_authority_id": "JAL",
+    "recipient_authority_name": "Jal Kal Vibhag (Kanpur)",
+    "recipient_role": "Executive Engineer (South Distribution)",
+    "subject": "Joint Inspection Request: Underground water leakage undermining road sub-grade at Naubasta Main",
+    "priority": "Urgent",
+    "body": "This is to bring to your urgent attention that subterranean pipeline seepage at Naubasta Main Road (near Chowk Turn) is persistently degrading the newly laid bitumen crust. You are requested to depute an Assistant Engineer for a Joint Inspection on 24-Feb-2026 at 11:00 AM so pipeline repair precedes road restoration.",
+    "complaint_id": "cmp-001",
+    "status": "Acknowledged",
+    "sent_at": "2026-02-19T11:30:00.000Z"
+  },
+  {
+    "id": "MEMO-2026-102",
+    "memo_no": "DM-LKO/ORD/2026/089",
+    "sender_id": "OFF-DIS-001",
+    "sender_name": "Vikramaditya Rao, IAS",
+    "sender_designation": "District Magistrate, Lucknow",
+    "sender_dept": "District Collectorate, Lucknow",
+    "recipient_authority_id": "LDA",
+    "recipient_authority_name": "Lucknow Development Authority",
+    "recipient_role": "Chief Town Planner & Enforcement Head",
+    "subject": "Encroachment Removal & Stormwater Drain Clearance along Shaheed Path Corridor",
+    "priority": "Immediate",
+    "body": "Multiple citizen grievances filed on Nirikshan indicate unauthorized vending sheds obstructing primary stormwater arterial drains. As per Section 133 CrPC and Municipal Bylaws, you are hereby instructed to initiate a coordinated anti-encroachment drive with Lucknow Police within 48 hours.",
+    "complaint_id": null,
+    "status": "Dispatched",
+    "sent_at": "2026-02-20T16:00:00.000Z"
+  }
+]

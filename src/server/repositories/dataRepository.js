@@ -80,6 +80,46 @@ function saveComplaints(value) {
   writeJson("complaints.json", value);
 }
 
+function getOfficers() {
+  return readJson("officers.json", []);
+}
+
+function saveOfficers(value) {
+  writeJson("officers.json", value);
+}
+
+function getUsers() {
+  return readJson("users.json", []);
+}
+
+function saveUsers(value) {
+  writeJson("users.json", value);
+}
+
+function getFundRequests() {
+  return readJson("fund_requests.json", []);
+}
+
+function saveFundRequests(value) {
+  writeJson("fund_requests.json", value);
+}
+
+function getOfficialMemos() {
+  return readJson("official_memos.json", []);
+}
+
+function saveOfficialMemos(value) {
+  writeJson("official_memos.json", value);
+}
+
+function getOfficerTasks() {
+  return readJson("officer_tasks.json", []);
+}
+
+function saveOfficerTasks(value) {
+  writeJson("officer_tasks.json", value);
+}
+
 export {
   getAreas,
   getAuthorities,
@@ -89,5 +129,15 @@ export {
   getReviews,
   saveReviews,
   getComplaints,
-  saveComplaints
+  saveComplaints,
+  getOfficers,
+  saveOfficers,
+  getUsers,
+  saveUsers,
+  getFundRequests,
+  saveFundRequests,
+  getOfficialMemos,
+  saveOfficialMemos,
+  getOfficerTasks,
+  saveOfficerTasks
 };
