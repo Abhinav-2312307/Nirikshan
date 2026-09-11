@@ -1321,7 +1321,7 @@ export default function Dashboard() {
       <div className="flex h-screen w-screen overflow-hidden bg-slate-950 text-slate-100">
         {/* SIDEBAR */}
         <aside 
-          className={`${isSidebarOpen ? 'w-[320px]' : 'w-[80px]'} transition-all duration-300 ease-in-out bg-white/5 backdrop-blur-3xl border-r border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] flex flex-col z-[1000] shrink-0 relative`}
+          className={`${isSidebarOpen ? 'w-[320px]' : 'w-[80px]'} transition-all duration-300 ease-in-out flex flex-col z-[1000] shrink-0 relative bg-white/5 backdrop-blur-[20px] rounded-[20px] border border-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] m-4 h-[calc(100vh-32px)]`}
         >
           {/* Toggle Button */}
           <button 
@@ -1365,16 +1365,39 @@ export default function Dashboard() {
                 <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2">
                   <Layers size={14} className="text-indigo-400" /> Map Visual Modes
                 </h4>
-                <div className="flex flex-col gap-2">
-                  <button className={`w-full text-left px-3 py-2 text-sm rounded-lg border transition-all ${activeMode === "explore" ? "bg-indigo-500/30 border-indigo-500/50 text-white" : "bg-black/20 border-transparent text-slate-400 hover:bg-white/10 hover:text-slate-200"}`} onClick={() => setActiveMode("explore")}>
-                    <span className="mr-2">🛣️</span> Explore & Rate
-                  </button>
-                  <button className={`w-full text-left px-3 py-2 text-sm rounded-lg border transition-all ${activeMode === "aqi" ? "bg-indigo-500/30 border-indigo-500/50 text-white" : "bg-black/20 border-transparent text-slate-400 hover:bg-white/10 hover:text-slate-200"}`} onClick={() => setActiveMode("aqi")}>
-                    <span className="mr-2">📊</span> Civic AQI Layers
-                  </button>
-                  <button className={`w-full text-left px-3 py-2 text-sm rounded-lg border transition-all ${activeMode === "heatmap" ? "bg-indigo-500/30 border-indigo-500/50 text-white" : "bg-black/20 border-transparent text-slate-400 hover:bg-white/10 hover:text-slate-200"}`} onClick={() => setActiveMode("heatmap")}>
-                    <span className="mr-2">🔥</span> Complaint Heatmap
-                  </button>
+                <div className="radio-input">
+                  <div className="glass">
+                    <div className="glass-inner"></div>
+                  </div>
+                  <div className="selector">
+                    <div className="choice" onClick={() => setActiveMode("explore")}>
+                      <div>
+                        <input className="choice-circle" checked={activeMode === "explore"} readOnly type="radio" id="mode-explore" />
+                        <div className="ball"></div>
+                      </div>
+                      <label htmlFor="mode-explore" className="choice-name">
+                        <span className="text-lg"></span> Explore & Rate
+                      </label>
+                    </div>
+                    <div className="choice" onClick={() => setActiveMode("aqi")}>
+                      <div>
+                        <input className="choice-circle" checked={activeMode === "aqi"} readOnly type="radio" id="mode-aqi" />
+                        <div className="ball"></div>
+                      </div>
+                      <label htmlFor="mode-aqi" className="choice-name">
+                        <span className="text-lg"></span> Civic AQI Layers
+                      </label>
+                    </div>
+                    <div className="choice" onClick={() => setActiveMode("heatmap")}>
+                      <div>
+                        <input className="choice-circle" checked={activeMode === "heatmap"} readOnly type="radio" id="mode-heatmap" />
+                        <div className="ball"></div>
+                      </div>
+                      <label htmlFor="mode-heatmap" className="choice-name">
+                        <span className="text-lg"></span> Complaint Heatmap
+                      </label>
+                    </div>
+                  </div>
                 </div>
                 
                 <div className="mt-5 pt-4 border-t border-white/10">
@@ -1620,424 +1643,308 @@ export default function Dashboard() {
           </button>
         </section>
 
-        <aside className="sheet">
-          {activeTab === "map" && (
-            <div id="view-map" className="panel-view active">
-              {selectedPlace && (
-                <div className="card place-card" id="place-summary-card">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <p id="place-type" className="place-type">
+        {/* FLOATING SELECTED AREA POPUP */}
+        {selectedPlace && (
+          <div className="absolute right-6 top-6 bottom-6 w-[380px] z-[2000] flex flex-col pointer-events-none">
+            <div className="pointer-events-auto bg-slate-950/60 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex-shrink-0 flex flex-col overflow-hidden max-h-full">
+              
+              {/* Header */}
+              <div className="p-5 border-b border-white/10 shrink-0 bg-slate-900/50">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-cyan-400 font-bold mb-1">
                       {`${selectedPlace.place.properties.type} ${selectedPlace.is_virtual ? "(pin drop)" : ""}`}
                     </p>
-                    <button 
-                      onClick={handleClosePlace}
-                      className="close-place-btn"
-                      style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px', fontSize: '1.2rem', lineHeight: 1 }}
-                      title="Close"
-                    >
-                      ✕
-                    </button>
+                    <h2 className="text-xl font-bold text-white leading-tight">{selectedPlace.place.properties.name}</h2>
                   </div>
-                  <h2 id="place-name">{selectedPlace.place.properties.name}</h2>
-                  <p id="place-address" className="place-address">
-                    {selectedPlace.place.properties.address || "No address metadata"}
-                  </p>
-
-                  <div className="metric-grid">
-                    <div><label>Quality Rating</label><strong>{selectedPlace.metrics.avg_rating ? `${selectedPlace.metrics.avg_rating}/5` : "No ratings"}</strong></div>
-                    <div><label>Reviews</label><strong>{selectedPlace.metrics.review_count}</strong></div>
-                    <div><label>Complaints</label><strong>{selectedPlace.metrics.complaint_count}</strong></div>
-                    <div><label>Pending</label><strong>{selectedPlace.metrics.pending_complaints}</strong></div>
-                  </div>
-                  <p id="place-jurisdiction" className="place-jurisdiction">
-                    Jurisdiction: {selectedPlace.area ? `${selectedPlace.area.name}, ${selectedPlace.area.city} | Auth: ${selectedPlace.area.authority}` : "Outside mapped region"}
-                  </p>
-                </div>
-              )}
-
-              {selectedPlace && (
-                <>
-                  <div className="card form-card" id="rating-submission-card">
-                    <h3>Rate Quality & Review</h3>
-                    <form id="review-form" onSubmit={onSubmitReview}>
-                      <div className="form-group">
-                        <label>Quality Grade
-                          <select name="rating" required>
-                            <option value="5">⭐⭐⭐⭐⭐ Excellent (Well-maintained)</option>
-                            <option value="4">⭐⭐⭐⭐ Good (Acceptable)</option>
-                            <option value="3">⭐⭐⭐ Moderate</option>
-                            <option value="2">⭐⭐ Poor</option>
-                            <option value="1">⭐ Critical (Damaged/Broken)</option>
-                          </select>
-                        </label>
-                      </div>
-                      <div className="form-group">
-                        <label>Feedback Comment
-                          <textarea name="comment" rows="3" maxLength="260" placeholder="E.g. Cleanliness, water logging, lighting, road condition..." required></textarea>
-                        </label>
-                      </div>
-                      <button type="submit" className="btn-primary">Post Review</button>
-                    </form>
-                  </div>
-
-                  <div className="card form-card" id="complaint-submission-card">
-                    <h3>Submit New Civic Complaint</h3>
-                    <div className="alert-info">
-                      🛡️ GPS and Timestamp attached. EXIF metadata will be stripped and faces automatically blurred.
-                    </div>
-                    
-                    <form id="complaint-form" onSubmit={onSubmitComplaint}>
-                      <div className="form-group">
-                        <label>Issue Classification
-                          <select name="issue_type" id="complaint-issue-type" required>
-                            <option value="Pothole">Road / Pothole (KNN & KDA)</option>
-                            <option value="Streetlight">Streetlight Failure (KNN & KDA)</option>
-                            <option value="Water">Water Supply Defect (Jal Kal & KNN)</option>
-                            <option value="Sewer">Drainage / Sewer Overflow (Jal Kal & KNN)</option>
-                            <option value="Garbage">Sanitation / Garbage Dump (KNN)</option>
-                            <option value="Safety">Public Safety Hazard (KNN)</option>
-                            <option value="Encroachment">Public Space Encroachment (KDA)</option>
-                          </select>
-                        </label>
-                      </div>
-                      
-                      <div className="form-group">
-                        <label>Severity Level
-                          <select name="severity" required>
-                            <option value="1">Low - Minor issue, needs repair</option>
-                            <option value="2">Medium - Obstructive, needs attention</option>
-                            <option value="3">High - Safety concern or disruption</option>
-                            <option value="5">Critical - Severe hazard / complete failure</option>
-                          </select>
-                        </label>
-                      </div>
-                      
-                      <div className="form-group">
-                        <label>Description of Issue
-                          <textarea name="description" rows="3" maxLength="300" placeholder="Describe the problem and nearest landmarks..." required></textarea>
-                        </label>
-                      </div>
-
-                      <div className="form-group">
-                        <label>Photographic Evidence
-                          <div className="photo-upload-simulator">
-                            {uploadedImage && (
-                              <div className="uploaded-image-preview" id="image-preview-container">
-                                <img src={uploadedImage} id="image-preview" alt="Civic Issue Preview" />
-                                <span className="preview-badge">🛡️ Face Blurred</span>
-                              </div>
-                            )}
-                            <button type="button" onClick={handlePhotoUploadSimulation} className="btn-secondary">📸 Select Issue Photo</button>
-                          </div>
-                        </label>
-                      </div>
-
-                      <button type="submit" className="btn-primary">File Complaint</button>
-                    </form>
-                  </div>
-
-                  <div className="card list-card" id="place-reviews-list-card">
-                    <h3>Recent Location Reviews</h3>
-                    <ul id="review-list" className="stack-list">
-                      {reviews.length === 0 ? (
-                        <li className="muted text-center py-3">No reviews registered for this place yet.</li>
-                      ) : (
-                        reviews.slice(0, 5).map((r, i) => (
-                          <li key={i}>
-                            <strong>
-                              <span>{"★".repeat(r.rating) + "☆".repeat(5 - r.rating)}</span>
-                              <span className="text-slate-400 text-[0.72rem]">{new Date(r.created_at).toLocaleString()}</span>
-                            </strong>
-                            <p>{r.comment}</p>
-                          </li>
-                        ))
-                      )}
-                    </ul>
-                  </div>
-
-                  <div className="card list-card" id="place-complaints-list-card">
-                    <h3>Location Complaints Ledger</h3>
-                    <ul id="complaint-list" className="stack-list">
-                      {placeComplaints.length === 0 ? (
-                        <li className="muted text-center py-3">No complaints reported for this place yet.</li>
-                      ) : (
-                        placeComplaints.slice(0, 5).map((c, i) => (
-                          <li key={i} className={c.escalated ? "escalated-pulse" : ""}>
-                            <strong>
-                              <span>{ISSUE_ICONS[c.issue_type] || "📍"} {c.issue_type}</span>
-                              <span className={`badge-status ${c.status.toLowerCase().replace(" ", "")}`}>{c.status}</span>
-                            </strong>
-                            <p>{c.description}</p>
-                            <p className="text-[0.72rem] text-slate-400 flex justify-between mt-2">
-                              <span>Dept: {c.department} ({c.authority_id})</span>
-                              <span>Score at Post: {c.user_trust_score}</span>
-                            </p>
-                            {c.verification_status === "Disputed" && <span className="disputed-flag">⚠️ Citizen Disputed</span>}
-                            {c.disputed_jurisdiction && <span className="disputed-flag text-[#60a5fa] border-[rgba(96,165,250,0.2)] bg-[rgba(96,165,250,0.1)]">🌐 Overlapping Jurisdiction (Multi-Routed)</span>}
-                            <div className="mt-2 flex gap-1 justify-end">
-                              <button onClick={() => handleFlagComplaint(c.complaint_id)} className="status-action btn-secondary py-1 px-2 text-[0.7rem] w-auto mt-0">🚩 Flag Spam ({c.flags_count || 0})</button>
-                            </div>
-                          </li>
-                        ))
-                      )}
-                    </ul>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {activeTab === "citizen" && (
-            <div id="view-citizen" className="panel-view active">
-              <div className="card profile-card">
-                <div className="profile-header">
-                  <div className="avatar">👤</div>
-                  <div>
-                    <h3>Citizen Account</h3>
-                    <p>Demo User Profile</p>
-                  </div>
-                </div>
-                
-                <div className="trust-score-widget">
-                  <div className="score-header">
-                    <span>Identity Verification Status</span>
-                    <strong id="citizen-trust-score">Trust Score: {userTrustScore}/100</strong>
-                  </div>
-                  
-                  <div className="progress-bar-bg">
-                    <div className="progress-bar-fill" style={{ width: `${userTrustScore}%` }}></div>
-                  </div>
-
-                  <div className="trust-status-flags">
-                    <span className={`status-chip ${userVerifiedOtp ? "verified" : "unverified"}`}>
-                      {userVerifiedOtp ? "📱 OTP Verified" : "📱 OTP Unverified"}
-                    </span>
-                    <span className={`status-chip ${userVerifiedAadhaar ? "verified" : "unverified"}`}>
-                      {userVerifiedAadhaar ? "🆔 Aadhaar Verified" : "🆔 Aadhaar Unverified"}
-                    </span>
-                  </div>
-
-                  <div className="verification-actions">
-                    <button onClick={handleVerifyOtp} disabled={userVerifiedOtp} className="btn-verify">Verify Mobile OTP (+10)</button>
-                    <button onClick={handleVerifyAadhaar} disabled={userVerifiedAadhaar} className="btn-verify">Verify Aadhaar ID (+30)</button>
-                  </div>
-                  <p className="trust-caption">High trust score (&gt;60) bypasses the AI spam moderation queue.</p>
-                </div>
-              </div>
-
-              <div className="card my-reports-card">
-                <h3>My Filed Complaints & Verification Loops</h3>
-                <p className="sec-desc text-[0.75rem] text-slate-400 mb-2">Once resolved, you have a 7-day window to Confirm or Dispute the resolution.</p>
-                <ul id="my-reports-list" className="stack-list">
-                  {myReports.length === 0 ? (
-                    <li className="muted text-center py-3">You have not submitted any complaints yet.</li>
-                  ) : (
-                    myReports.map((c, i) => (
-                      <li key={i}>
-                        <strong>
-                          <span>{ISSUE_ICONS[c.issue_type] || "📍"} {c.issue_type} - {c.place_name}</span>
-                          <span className={`badge-status ${c.status.toLowerCase().replace(" ", "")}`}>{c.status}</span>
-                        </strong>
-                        <p>{c.description}</p>
-                        <p className="text-[0.72rem] text-slate-400">Filed on: {new Date(c.created_at).toLocaleDateString()}</p>
-                        
-                        {c.status === "Resolved" && (
-                          <div className="verification-loop-actions mt-2 flex gap-1">
-                            <button onClick={() => handleVerifyResolution(c.complaint_id, "Confirmed")} className="btn-confirm">Confirm Resolution</button>
-                            <button onClick={() => handleVerifyResolution(c.complaint_id, "Disputed")} className="btn-dispute">Dispute Resolution</button>
-                          </div>
-                        )}
-                      </li>
-                    ))
-                  )}
-                </ul>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "governance" && (
-            <div id="view-governance" className="panel-view active">
-              {/* Official Government Officer Portal Notice */}
-              <div className="card role-card" style={{ background: "linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(15, 23, 42, 0.95))", border: "1px solid rgba(245, 158, 11, 0.35)", padding: "16px", borderRadius: "12px", marginBottom: "16px" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
-                  <div>
-                    <span style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "1px", color: "#f59e0b", fontWeight: "bold", display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span>🛡️</span>
-                      <span>Administrative Officer Console</span>
-                    </span>
-                    <h3 style={{ margin: "4px 0 2px 0", fontSize: "1.05rem", color: "#ffffff", fontWeight: "bold" }}>
-                      Government Grievance Command Portal
-                    </h3>
-                    <p style={{ margin: 0, fontSize: "0.78rem", color: "#94a3b8" }}>
-                      Administrative officers have a separate, dedicated command site with hierarchy controls, jurisdiction maps, inter-department memos, and budget approvals.
-                    </p>
-                  </div>
-                  <a
-                    href="/officer/login"
-                    style={{
-                      background: "linear-gradient(to right, #f59e0b, #ea580c)",
-                      color: "#020617",
-                      fontWeight: "bold",
-                      fontSize: "0.82rem",
-                      padding: "8px 16px",
-                      borderRadius: "8px",
-                      textDecoration: "none",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      boxShadow: "0 4px 12px rgba(245, 158, 11, 0.25)"
-                    }}
+                  <button 
+                    onClick={handleClosePlace}
+                    className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 rounded-full p-1.5 transition-colors shrink-0 ml-2"
                   >
-                    <span>Officer Portal Login</span>
-                    <span>→</span>
-                  </a>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                  </button>
+                </div>
+                <p className="text-xs text-slate-300 mt-1">
+                  {selectedPlace.place.properties.address || "No address metadata"}
+                </p>
+                <div className="text-[10px] text-slate-400 mt-2 flex gap-1.5 items-center">
+                   <span>🏛️</span>
+                   <span>{selectedPlace.area ? `${selectedPlace.area.name}, ${selectedPlace.area.city} | Auth: ${selectedPlace.area.authority}` : "Outside mapped region"}</span>
                 </div>
               </div>
 
-              {/* Leaderboard */}
-              <div className="card leaderboard-card">
-                <h3>Authority Resolution Leaderboard</h3>
-                <table className="data-table w-full text-left border-collapse mt-2">
-                  <thead>
-                    <tr className="border-b border-slate-700 text-slate-400 text-[0.75rem] uppercase">
-                      <th className="py-2">Authority</th>
-                      <th className="py-2">Performance</th>
-                      <th className="py-2">Resolved</th>
-                      <th className="py-2">Disputes</th>
-                      <th className="py-2">Open</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {authorities.map((auth, i) => (
-                      <tr key={i} className="border-b border-slate-800 text-[0.84rem]">
-                        <td className="py-2 font-medium">{auth.name}</td>
-                        <td className="py-2 text-[#22d3ee] font-bold">{auth.metrics?.score || 75}%</td>
-                        <td className="py-2">{auth.metrics?.resolved_complaints || 0}</td>
-                        <td className="py-2 text-rose-400">{auth.metrics?.disputed_complaints || 0}</td>
-                        <td className="py-2">{auth.metrics?.open_complaints || 0}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              {/* Scrollable Content */}
+              <div className="p-5 overflow-y-auto overflow-x-hidden custom-scrollbar flex-1 flex flex-col gap-6">
+                
+                {/* Metrics */}
+                <div className="grid grid-cols-2 gap-2 shrink-0">
+                  <div className="bg-white/5 rounded-xl p-3 border border-white/5">
+                    <span className="block text-[10px] text-slate-400 mb-0.5 uppercase tracking-wider">Quality</span>
+                    <strong className="text-xl text-white font-semibold">{selectedPlace.metrics.avg_rating ? `${selectedPlace.metrics.avg_rating}/5` : "N/A"}</strong>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-3 border border-white/5">
+                    <span className="block text-[10px] text-slate-400 mb-0.5 uppercase tracking-wider">Reviews</span>
+                    <strong className="text-xl text-white font-semibold">{selectedPlace.metrics.review_count}</strong>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-3 border border-white/5">
+                    <span className="block text-[10px] text-slate-400 mb-0.5 uppercase tracking-wider">Complaints</span>
+                    <strong className="text-xl text-rose-400 font-semibold">{selectedPlace.metrics.complaint_count}</strong>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-3 border border-white/5">
+                    <span className="block text-[10px] text-slate-400 mb-0.5 uppercase tracking-wider">Pending</span>
+                    <strong className="text-xl text-amber-400 font-semibold">{selectedPlace.metrics.pending_complaints}</strong>
+                  </div>
+                </div>
+              
+                <div className="h-px bg-white/10 shrink-0 w-full"></div>
 
-              {/* Ward AQI Rankings */}
-              <div className="card ranking-card">
-                <h3>Ward AQI Performance Rankings</h3>
-                <ul id="ward-ranking-list" className="ranking-list flex flex-col gap-2 mt-2 max-h-[220px] overflow-y-auto">
-                  {wardRankings.slice(0, 15).map((ward, i) => (
-                    <li key={i} className="flex justify-between items-center text-[0.84rem] bg-slate-900 border border-slate-800 rounded p-2">
-                      <span>{i + 1}. {ward.name}</span>
-                      <strong style={{ color: scoreToColor(ward.area_score) }}>{ward.area_score} AQI</strong>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                {selectedPlace.area ? (
+                  <>
+                    {/* Forms Section */}
+                    <div className="flex flex-col gap-4 shrink-0">
+                       {/* Rating Form */}
+                       <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                         <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2"><span className="text-amber-400 text-base">★</span> Rate Quality</h3>
+                         <form onSubmit={onSubmitReview} className="flex flex-col gap-3">
+                           <div>
+                             <select name="rating" required className="w-full bg-slate-950/50 border border-slate-700 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-cyan-500">
+                               <option value="5">⭐⭐⭐⭐⭐ Excellent</option>
+                               <option value="4">⭐⭐⭐⭐ Good</option>
+                               <option value="3">⭐⭐⭐ Moderate</option>
+                               <option value="2">⭐⭐ Poor</option>
+                               <option value="1">⭐ Critical Issue</option>
+                             </select>
+                           </div>
+                           <div>
+                             <textarea name="comment" rows="2" maxLength="260" placeholder="Describe the conditions..." required className="w-full bg-slate-950/50 border border-slate-700 rounded-lg p-2.5 text-xs text-white resize-none focus:outline-none focus:border-cyan-500"></textarea>
+                           </div>
+                           <button type="submit" className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-medium text-xs py-2.5 rounded-lg transition-colors">Post Review</button>
+                         </form>
+                       </div>
 
-              {/* CSV Export */}
-              <div className="card export-card">
-                <h3>Civic Data Analytics Portal</h3>
-                <p className="text-[0.8rem] text-slate-400 mb-2">Export completed and open logs for public media inspection and analytics.</p>
-                <button
-                  onClick={() => window.open("/api/complaints/export", "_blank")}
-                  className="btn-secondary w-full"
-                >
-                  📥 Export Immutable Civic Ledger (CSV)
-                </button>
+                       {/* Complaint Form */}
+                       <div className="bg-rose-500/5 border border-rose-500/20 rounded-xl p-4">
+                         <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2"><span className="text-rose-400 text-base">⚠️</span> File a Complaint</h3>
+                         <div className="text-[10px] text-rose-300 bg-rose-500/10 p-2 rounded-lg mb-3 flex items-start gap-1.5 leading-tight">
+                           <span className="shrink-0 text-xs">🛡️</span> 
+                           <span>GPS coordinates attached automatically. Faces will be blurred.</span>
+                         </div>
+                         <form onSubmit={onSubmitComplaint} className="flex flex-col gap-3">
+                            <select name="issue_type" required className="w-full bg-slate-950/50 border border-slate-700 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-rose-500">
+                              <option value="Pothole">Road / Pothole</option>
+                              <option value="Streetlight">Streetlight Failure</option>
+                              <option value="Water">Water Supply Defect</option>
+                              <option value="Sewer">Drainage / Sewer Overflow</option>
+                              <option value="Garbage">Sanitation / Garbage Dump</option>
+                              <option value="Safety">Public Safety Hazard</option>
+                              <option value="Encroachment">Public Space Encroachment</option>
+                            </select>
+                            
+                            <select name="severity" required className="w-full bg-slate-950/50 border border-slate-700 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-rose-500">
+                              <option value="1">Low - Minor issue</option>
+                              <option value="2">Medium - Obstructive</option>
+                              <option value="3">High - Safety concern</option>
+                              <option value="5">Critical - Severe hazard</option>
+                            </select>
+                            
+                            <textarea name="description" rows="2" maxLength="300" placeholder="Describe the problem..." required className="w-full bg-slate-950/50 border border-slate-700 rounded-lg p-2.5 text-xs text-white resize-none focus:outline-none focus:border-rose-500"></textarea>
+                            
+                            {uploadedImage ? (
+                              <div className="relative border border-slate-700 rounded-lg overflow-hidden h-24">
+                                <img src={uploadedImage} className="w-full h-full object-cover opacity-80" alt="Civic Issue" />
+                                <span className="absolute bottom-1 right-1 text-[9px] bg-slate-900/90 px-1.5 py-0.5 rounded text-cyan-400 font-medium">Face Blurred</span>
+                              </div>
+                            ) : (
+                              <button type="button" onClick={handlePhotoUploadSimulation} className="w-full bg-slate-950/50 hover:bg-slate-800 text-slate-300 border border-slate-600 border-dashed text-xs py-3 rounded-lg transition-colors flex items-center justify-center gap-2">📸 Attach Photo Evidence</button>
+                            )}
+
+                            <button type="submit" className="w-full bg-rose-600 hover:bg-rose-500 text-white font-medium text-xs py-2.5 rounded-lg transition-colors shadow-lg shadow-rose-900/20">Submit Complaint</button>
+                         </form>
+                       </div>
+                    </div>
+
+                    <div className="h-px bg-white/10 shrink-0 w-full mt-2"></div>
+
+                    {/* Lists Section */}
+                    <div className="flex flex-col gap-6 shrink-0 mt-2">
+                      <div>
+                        <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3">Recent Reviews</h3>
+                        <ul className="flex flex-col gap-3">
+                          {reviews.length === 0 ? (
+                            <li className="text-slate-500 text-xs italic text-center py-2 bg-white/5 rounded-lg">No reviews yet.</li>
+                          ) : (
+                            reviews.slice(0, 5).map((r, i) => (
+                              <li key={i} className="bg-white/5 rounded-lg p-3 border border-white/5">
+                                <div className="flex justify-between items-center mb-1">
+                                  <span className="text-amber-400 text-xs">{"★".repeat(r.rating) + "☆".repeat(5 - r.rating)}</span>
+                                  <span className="text-slate-500 text-[9px]">{new Date(r.created_at).toLocaleDateString()}</span>
+                                </div>
+                                <p className="text-xs text-slate-200">{r.comment}</p>
+                              </li>
+                            ))
+                          )}
+                        </ul>
+                      </div>
+
+                      <div>
+                        <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3">Recent Complaints</h3>
+                        <ul className="flex flex-col gap-3">
+                          {placeComplaints.length === 0 ? (
+                            <li className="text-slate-500 text-xs italic text-center py-2 bg-white/5 rounded-lg">No complaints.</li>
+                          ) : (
+                            placeComplaints.slice(0, 5).map((c, i) => (
+                              <li key={i} className="bg-white/5 rounded-lg p-3 border border-white/5">
+                                <div className="flex justify-between items-start mb-1">
+                                  <span className="text-white text-xs font-semibold flex items-center gap-1.5">{ISSUE_ICONS[c.issue_type] || "📍"} {c.issue_type}</span>
+                                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide ${c.status === 'Resolved' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>{c.status}</span>
+                                </div>
+                                <p className="text-xs text-slate-300 my-1.5">{c.description}</p>
+                                <div className="flex justify-between items-center text-[9px] text-slate-500">
+                                  <span>Dept: {c.department}</span>
+                                  <button onClick={() => handleFlagComplaint(c.complaint_id)} className="hover:text-rose-400 transition-colors">🚩 Spam ({c.flags_count || 0})</button>
+                                </div>
+                              </li>
+                            ))
+                          )}
+                        </ul>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-6 text-center flex flex-col items-center gap-3 mt-2 shrink-0">
+                    <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-400 text-2xl border border-amber-500/20">
+                      🚫
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-amber-400 mb-1.5">Out of Bounds</h3>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        This location falls outside our currently supported civic jurisdictions. Feedback and complaint services are disabled for this area.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-          )}
-        </aside>
+          </div>
+        )}
           </main>
         </div> {/* END app-main */}
       </div> {/* END app-container */}
 
       {/* Citizen Authentication Modal */}
       {showCitizenModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">👤</span>
-                <h3 className="text-sm font-bold text-white">Citizen Sign In & Registration</h3>
-              </div>
-              <button onClick={() => setShowCitizenModal(false)} className="text-slate-400 hover:text-white">✕</button>
-            </div>
+        <div className="fixed inset-0 z-[2000] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#151717] rounded-[20px] p-[30px] w-full max-w-[450px] shadow-2xl flex flex-col gap-[10px] font-sans relative border border-slate-800">
+            <button onClick={() => setShowCitizenModal(false)} className="absolute right-6 top-6 text-slate-500 hover:text-slate-300 transition-colors">✕</button>
 
-            {citizenAuthError && (
-              <div className="p-2.5 rounded bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
-                ⚠️ {citizenAuthError}
-              </div>
-            )}
+            <h3 className="text-2xl font-bold text-white mb-2 tracking-tight">Citizen Sign In</h3>
 
-            {/* 1-Click Citizen Presets for Instant Testing */}
-            <div>
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">
+            {/* Quick Citizen Test Profiles (kept as requested) */}
+            <div className="mb-3">
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-2">
                 ⚡ Quick Citizen Test Profiles
               </span>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => handleCitizenAuth("rahul.sharma@example.com", "citizen123")}
-                  className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-cyan-500/50 text-left transition-colors group"
+                  className="p-2.5 rounded-[10px] bg-slate-900/50 border border-slate-800 hover:border-[#2d79f3] text-left transition-colors group"
                 >
-                  <span className="text-xs font-bold text-white block group-hover:text-cyan-300">Rahul Sharma</span>
-                  <span className="text-[10px] text-slate-400">Hazratganj, Lucknow</span>
-                  <span className="text-[9px] text-emerald-400 block mt-0.5">85 Trust Score</span>
+                  <span className="text-[13px] font-bold text-white block group-hover:text-[#2d79f3]">Rahul Sharma</span>
+                  <span className="text-[11px] text-slate-500 mt-0.5 block">Lucknow (Trust: 85)</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleCitizenAuth("priya.verma@example.com", "citizen123")}
-                  className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-cyan-500/50 text-left transition-colors group"
+                  className="p-2.5 rounded-[10px] bg-slate-900/50 border border-slate-800 hover:border-[#2d79f3] text-left transition-colors group"
                 >
-                  <span className="text-xs font-bold text-white block group-hover:text-cyan-300">Priya Verma</span>
-                  <span className="text-[10px] text-slate-400">Naubasta, Kanpur</span>
-                  <span className="text-[9px] text-emerald-400 block mt-0.5">90 Trust Score</span>
+                  <span className="text-[13px] font-bold text-white block group-hover:text-[#2d79f3]">Priya Verma</span>
+                  <span className="text-[11px] text-slate-500 mt-0.5 block">Kanpur (Trust: 90)</span>
                 </button>
               </div>
             </div>
 
-            <form onSubmit={(e) => { e.preventDefault(); handleCitizenAuth(); }} className="space-y-3 pt-2 border-t border-slate-800">
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-400 mb-1">Email Address</label>
-                <input
-                  type="email"
-                  value={citizenEmail}
-                  onChange={(e) => setCitizenEmail(e.target.value)}
-                  required
-                  placeholder="your.email@example.com"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-200"
-                />
+            {citizenAuthError && (
+              <div className="p-3 rounded-[10px] bg-rose-500/10 border border-rose-500/30 text-rose-300 text-[13px]">
+                ⚠️ {citizenAuthError}
+              </div>
+            )}
+
+            <form onSubmit={(e) => { e.preventDefault(); handleCitizenAuth(); }} className="flex flex-col gap-[10px]">
+              <div className="flex flex-col">
+                <label className="text-white font-semibold mb-2 text-[14px]">Email</label>
+                <div className="flex items-center border-[1.5px] border-slate-700 rounded-[10px] h-[50px] pl-[10px] transition-all duration-200 focus-within:border-[#2d79f3] bg-transparent">
+                  <svg height="20" viewBox="0 0 32 32" width="20" xmlns="http://www.w3.org/2000/svg" className="fill-slate-400 shrink-0">
+                    <g id="Layer_3" data-name="Layer 3"><path d="m30.853 13.87a15 15 0 0 0 -29.729 4.082 15.1 15.1 0 0 0 12.876 12.918 15.6 15.6 0 0 0 2.016.13 14.85 14.85 0 0 0 7.715-2.145 1 1 0 1 0 -1.031-1.711 13.007 13.007 0 1 1 5.458-6.529 2.149 2.149 0 0 1 -4.158-.759v-10.856a1 1 0 0 0 -2 0v1.726a8 8 0 1 0 .2 10.325 4.135 4.135 0 0 0 7.83.274 15.2 15.2 0 0 0 .823-7.455zm-14.853 8.13a6 6 0 1 1 6-6 6.006 6.006 0 0 1 -6 6z"></path></g>
+                  </svg>
+                  <input 
+                    type="email" 
+                    className="ml-[10px] rounded-[10px] border-none w-[85%] h-full bg-transparent focus:outline-none text-white text-[14px] placeholder:text-slate-500" 
+                    placeholder="Enter your Email"
+                    value={citizenEmail}
+                    onChange={(e) => setCitizenEmail(e.target.value)}
+                    required
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-400 mb-1">Password</label>
-                <input
-                  type="password"
-                  value={citizenPassword}
-                  onChange={(e) => setCitizenPassword(e.target.value)}
-                  required
-                  placeholder="••••••••"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-200"
-                />
+              <div className="flex flex-col mt-2">
+                <label className="text-white font-semibold mb-2 text-[14px]">Password</label>
+                <div className="flex items-center border-[1.5px] border-slate-700 rounded-[10px] h-[50px] pl-[10px] pr-4 transition-all duration-200 focus-within:border-[#2d79f3] bg-transparent">
+                  <svg height="20" viewBox="-64 0 512 512" width="20" xmlns="http://www.w3.org/2000/svg" className="fill-slate-400 shrink-0"><path d="m336 512h-288c-26.453125 0-48-21.523438-48-48v-224c0-26.476562 21.546875-48 48-48h288c26.453125 0 48 21.523438 48 48v224c0 26.476562-21.546875 48-48 48zm-288-288c-8.8125 0-16 7.167969-16 16v224c0 8.832031 7.1875 16 16 16h288c8.8125 0 16-7.167969 16-16v-224c0-8.832031-7.1875-16-16-16zm0 0"></path><path d="m304 224c-8.832031 0-16-7.167969-16-16v-80c0-52.929688-43.070312-96-96-96s-96 43.070312-96 96v80c0 8.832031-7.167969 16-16 16s-16-7.167969-16-16v-80c0-70.59375 57.40625-128 128-128s128 57.40625 128 128v80c0 8.832031-7.167969 16-16 16zm0 0"></path></svg>        
+                  <input 
+                    type="password" 
+                    className="ml-[10px] rounded-[10px] border-none w-full h-full bg-transparent focus:outline-none text-white text-[14px] placeholder:text-slate-500" 
+                    placeholder="Enter your Password"
+                    value={citizenPassword}
+                    onChange={(e) => setCitizenPassword(e.target.value)}
+                    required
+                  />
+                  <svg viewBox="0 0 576 512" height="1em" xmlns="http://www.w3.org/2000/svg" className="fill-slate-400 cursor-pointer ml-2 hover:fill-slate-200 transition-colors shrink-0"><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM144 256a144 144 0 1 1 288 0 144 144 0 1 1 -288 0zm144-64c0 35.3-28.7 64-64 64c-7.1 0-13.9-1.2-20.3-3.3c-5.5-1.8-11.9 1.6-11.7 7.4c.3 6.9 1.3 13.8 3.2 20.7c13.7 51.2 66.4 81.6 117.6 67.9s81.6-66.4 67.9-117.6c-11.1-41.5-47.8-69.4-88.6-71.1c-5.8-.2-9.2 6.1-7.4 11.7c2.1 6.4 3.3 13.2 3.3 20.3z"></path></svg>
+                </div>
               </div>
-
-              <div className="pt-2 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCitizenModal(false)}
-                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20"
-                >
-                  Sign In
-                </button>
+            
+              <div className="flex flex-row items-center justify-between mt-2">
+                <div className="flex items-center gap-[10px]">
+                  <input type="checkbox" id="remember" className="w-4 h-4 rounded border-slate-700 bg-transparent text-[#2d79f3] focus:ring-[#2d79f3] cursor-pointer" />
+                  <label htmlFor="remember" className="text-[14px] text-slate-300 font-normal cursor-pointer select-none">Remember me </label>
+                </div>
+                <span className="text-[14px] ml-[5px] text-[#2d79f3] font-medium cursor-pointer hover:text-blue-400 transition-colors">Forgot password?</span>
               </div>
+              
+              <button type="submit" className="mt-5 mb-[10px] bg-[#2d79f3] hover:bg-[#2563eb] text-white text-[15px] font-medium rounded-[10px] h-[50px] w-full cursor-pointer transition-colors border-none shadow-[0_4px_14px_0_rgb(45,121,243,0.39)]">
+                Sign In
+              </button>
             </form>
+
+            <p className="text-center text-slate-300 text-[14px] my-[5px]">
+              Don't have an account? <span className="text-[14px] ml-[5px] text-[#2d79f3] font-medium cursor-pointer hover:text-blue-400 transition-colors">Sign Up</span>
+            </p>
+            
+            <div className="flex items-center justify-center gap-4 my-2">
+              <div className="h-[1px] flex-1 bg-slate-800"></div>
+              <p className="text-slate-500 text-[12px] font-medium uppercase tracking-wider">Or With</p>
+              <div className="h-[1px] flex-1 bg-slate-800"></div>
+            </div>
+
+            <div className="flex flex-row gap-[10px]">
+              <button type="button" className="mt-[10px] w-full h-[50px] rounded-[10px] flex justify-center items-center font-medium gap-[10px] border border-slate-700 bg-slate-900/50 text-slate-200 cursor-pointer transition-colors hover:border-[#2d79f3] hover:bg-slate-900">
+                <svg version="1.1" width="20" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 512 512" style={{enableBackground:"new 0 0 512 512"}} xmlSpace="preserve">
+                  <path style={{fill:"#FBBB00"}} d="M113.47,309.408L95.648,375.94l-65.139,1.378C11.042,341.211,0,299.9,0,256c0-42.451,10.324-82.483,28.624-117.732h0.014l57.992,10.632l25.404,57.644c-5.317,15.501-8.215,32.141-8.215,49.456C103.821,274.792,107.225,292.797,113.47,309.408z"></path>
+                  <path style={{fill:"#518EF8"}} d="M507.527,208.176C510.467,223.662,512,239.655,512,256c0,18.328-1.927,36.206-5.598,53.451c-12.462,58.683-45.025,109.925-90.134,146.187l-0.014-0.014l-73.044-3.727l-10.338-64.535c29.932-17.554,53.324-45.025,65.646-77.911h-136.89V208.176h138.887L507.527,208.176L507.527,208.176z"></path>
+                  <path style={{fill:"#28B446"}} d="M416.253,455.624l0.014,0.014C372.396,490.901,316.666,512,256,512c-97.491,0-182.252-54.491-225.491-134.681l82.961-67.91c21.619,57.698,77.278,98.771,142.53,98.771c28.047,0,54.323-7.582,76.87-20.818L416.253,455.624z"></path>
+                  <path style={{fill:"#F14336"}} d="M419.404,58.936l-82.933,67.896c-23.335-14.586-50.919-23.012-80.471-23.012c-66.729,0-123.429,42.957-143.965,102.724l-83.397-68.276h-0.014C71.23,56.123,157.06,0,256,0C318.115,0,375.068,22.126,419.404,58.936z"></path>
+                </svg>
+                Google 
+              </button>
+              
+              <button type="button" className="mt-[10px] w-full h-[50px] rounded-[10px] flex justify-center items-center font-medium gap-[10px] border border-slate-700 bg-slate-900/50 text-slate-200 cursor-pointer transition-colors hover:border-[#2d79f3] hover:bg-slate-900">
+                <svg version="1.1" height="20" width="20" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 22.773 22.773" style={{enableBackground:"new 0 0 22.773 22.773"}} xmlSpace="preserve" className="fill-slate-200">
+                  <g><g> <path d="M15.769,0c0.053,0,0.106,0,0.162,0c0.13,1.606-0.483,2.806-1.228,3.675c-0.731,0.863-1.732,1.7-3.351,1.573 c-0.108-1.583,0.506-2.694,1.25-3.561C13.292,0.879,14.557,0.16,15.769,0z"></path> <path d="M20.67,16.716c0,0.016,0,0.03,0,0.045c-0.455,1.378-1.104,2.559-1.896,3.655c-0.723,0.995-1.609,2.334-3.191,2.334 c-1.367,0-2.275-0.879-3.676-0.903c-1.482-0.024-2.297,0.735-3.652,0.926c-0.155,0-0.31,0-0.462,0 c-0.995-0.144-1.798-0.932-2.383-1.642c-1.725-2.098-3.058-4.808-3.306-8.276c0-0.34,0-0.679,0-1.019 c0.105-2.482,1.311-4.5,2.914-5.478c0.846-0.52,2.009-0.963,3.304-0.765c0.555,0.086,1.122,0.276,1.619,0.464 c0.471,0.181,1.06,0.502,1.618,0.485c0.378-0.011,0.754-0.208,1.135-0.347c1.116-0.403,2.21-0.865,3.652-0.648 c1.733,0.262,2.963,1.032,3.723,2.22c-1.466,0.933-2.625,2.339-2.427,4.74C17.818,14.688,19.086,15.964,20.67,16.716z"></path> </g></g>
+                </svg>
+                Apple 
+              </button>
+            </div>
           </div>
         </div>
       )}
