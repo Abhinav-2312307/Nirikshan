@@ -832,7 +832,7 @@ export default function Dashboard() {
 
     aqiLayerRef.current = layer;
 
-    if (activeModeRef.current === "aqi" || activeModeRef.current === "heatmap") {
+    if (activeModeRef.current === "aqi") {
       layer.addTo(activeMap);
       // Wait for layout/paint and trigger smooth fade-in
       requestAnimationFrame(() => {
@@ -963,7 +963,7 @@ export default function Dashboard() {
   };
 
   const handleZoomEnd = () => {
-    if (activeModeRef.current !== "aqi" && activeModeRef.current !== "heatmap") return;
+    if (activeModeRef.current !== "aqi") return;
     if (zoomDebounceRef.current) clearTimeout(zoomDebounceRef.current);
     zoomDebounceRef.current = setTimeout(async () => {
       await refreshAqiLayer();
@@ -1020,6 +1020,8 @@ export default function Dashboard() {
     } else if (activeMode === "heatmap") {
       if (!heatLayerRef.current) {
         heatLayerRef.current = L.heatLayer([], { radius: 26, blur: 22, maxZoom: 18 }).addTo(map);
+      } else if (!map.hasLayer(heatLayerRef.current)) {
+        heatLayerRef.current.addTo(map);
       }
       const heatPoints = list
         .filter(c => c.status !== "Closed" && c.status !== "Moderation")
@@ -1046,7 +1048,7 @@ export default function Dashboard() {
     } else if (activeMode === "aqi") {
       refreshAqiLayer();
     } else if (activeMode === "heatmap") {
-      refreshAqiLayer();
+      refreshComplaints();
     }
   };
 
