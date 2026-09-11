@@ -76,10 +76,8 @@
   animation: drift-one 35s infinite alternate-reverse ease-in-out;
 }
 
-* {
+*, ::before, ::after {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
 }
 
 body {
@@ -529,8 +527,8 @@ body {
 /* High Performance Map Badge & Progressive Streaming Indicator */
 .map-perf-badge {
   position: absolute;
-  bottom: 24px;
-  left: 20px;
+  bottom: 84px; /* Stacks cleanly above .stats-row (bottom: 16px) */
+  left: 16px;
   z-index: 800;
   display: flex;
   align-items: center;
@@ -547,6 +545,12 @@ body {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   pointer-events: none;
   transition: all 0.3s ease;
+}
+
+/* Offset Leaflet zoom buttons so they are not hidden behind .map-mode-control */
+.layout.tab-map .leaflet-top.leaflet-left {
+  top: 195px !important;
+  left: 16px !important;
 }
 
 .map-perf-badge .sync-dot {
@@ -677,7 +681,8 @@ body {
   font-weight: 600;
 }
 
-select, textarea, input[type="text"] {
+.sheet select, .sheet textarea, .sheet input[type="text"],
+.form-card select, .form-card textarea, .form-card input[type="text"] {
   width: 100%;
   margin-top: 6px;
   border: 1px solid rgba(255, 255, 255, 0.07);
@@ -691,7 +696,8 @@ select, textarea, input[type="text"] {
   transition: all 0.25s ease;
 }
 
-select:focus, textarea:focus, input[type="text"]:focus {
+.sheet select:focus, .sheet textarea:focus, .sheet input[type="text"]:focus,
+.form-card select:focus, .form-card textarea:focus, .form-card input[type="text"]:focus {
   border-color: var(--brand);
   background: rgba(18, 14, 26, 0.7);
   box-shadow: 0 0 12px rgba(192, 132, 252, 0.15);
@@ -1041,6 +1047,7 @@ textarea {
   padding: 10px 12px;
   text-align: left;
   border-bottom: 1px solid var(--line);
+  white-space: nowrap;
 }
 
 .data-table th {
@@ -1587,4 +1594,23 @@ svg:focus-visible {
   color: rgba(255, 255, 255, 0.65);
   font-weight: 500;
 }
+
+/* Government Officer Portal Specific Styles */
+.custom-officer-marker {
+  background: transparent !important;
+  border: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.officer-portal-root {
+  font-family: var(--font-body), -apple-system, sans-serif;
+}
+
+.officer-portal-btn:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+}
+
 

@@ -1,0 +1,180 @@
+[
+  {
+    "id": "OFF-NAT-001",
+    "email": "national.director@nirikshan.gov.in",
+    "password": "admin123",
+    "name": "Dr. Rajeshwar Prasad, IAS",
+    "designation": "Director General & Joint Secretary (Urban Governance)",
+    "department": "MoHUA - Ministry of Housing & Urban Affairs",
+    "level": "national",
+    "superior_id": null,
+    "badge": "Apex National Command",
+    "phone": "+91-11-2306-0484",
+    "jurisdiction": {
+      "code": "IN",
+      "name": "Pan-India Central Command",
+      "type": "National",
+      "lat": 22.5937,
+      "lng": 78.9629,
+      "zoom": 5,
+      "geojson_file": "india.states.geojson",
+      "feature_name": null
+    }
+  },
+  {
+    "id": "OFF-ST-001",
+    "email": "secretary.up@nirikshan.gov.in",
+    "password": "admin123",
+    "name": "Smt. Anuradha Singhal, IAS",
+    "designation": "Principal Secretary, Urban Development",
+    "department": "Urban Development Directorate, Govt. of Uttar Pradesh",
+    "level": "state",
+    "superior_id": "OFF-NAT-001",
+    "badge": "State Urban Directorate",
+    "phone": "+91-522-2238091",
+    "jurisdiction": {
+      "code": "UP",
+      "name": "Uttar Pradesh State",
+      "type": "State",
+      "lat": 26.8467,
+      "lng": 80.9462,
+      "zoom": 7,
+      "geojson_file": "UttarPradesh.geojson",
+      "feature_name": "Uttar Pradesh"
+    }
+  },
+  {
+    "id": "OFF-DIS-001",
+    "email": "dm.lucknow@nirikshan.gov.in",
+    "password": "admin123",
+    "name": "Vikramaditya Rao, IAS",
+    "designation": "District Magistrate & Special Officer",
+    "department": "District Administration & Lucknow Nagar Nigam (LNN)",
+    "level": "district",
+    "superior_id": "OFF-ST-001",
+    "badge": "District Magistrate (DM)",
+    "phone": "+91-522-2623001",
+    "jurisdiction": {
+      "code": "LUCKNOW",
+      "name": "Lucknow District",
+      "type": "District",
+      "lat": 26.8467,
+      "lng": 80.9462,
+      "zoom": 12,
+      "geojson_file": "up.districts.geojson",
+      "feature_name": "Lucknow"
+    }
+  },
+  {
+    "id": "OFF-DIS-002",
+    "email": "commissioner.kanpur@nirikshan.gov.in",
+    "password": "admin123",
+    "name": "Alok Kumar Saxena, IAS",
+    "designation": "Municipal Commissioner & CEO Smart City",
+    "department": "Kanpur Nagar Nigam (KNN) & KDA",
+    "level": "district",
+    "superior_id": "OFF-ST-001",
+    "badge": "Municipal Commissioner",
+    "phone": "+91-512-2540021",
+    "jurisdiction": {
+      "code": "KANPUR",
+      "name": "Kanpur Nagar District",
+      "type": "District",
+      "lat": 26.4499,
+      "lng": 80.3319,
+      "zoom": 12,
+      "geojson_file": "up.districts.geojson",
+      "feature_name": "Kanpur Nagar"
+    }
+  },
+  {
+    "id": "OFF-ZN-001",
+    "email": "zonal.officer.zone3@nirikshan.gov.in",
+    "password": "admin123",
+    "name": "Er. Devendra Nath Shukla",
+    "designation": "Zonal Executive Officer (Zone-3)",
+    "department": "Lucknow Nagar Nigam (Zone-3 Central)",
+    "level": "zone",
+    "superior_id": "OFF-DIS-001",
+    "badge": "Zonal Executive Officer",
+    "phone": "+91-522-2287411",
+    "jurisdiction": {
+      "code": "LKO-ZN3",
+      "name": "Zone-3 Central (Hazratganj / Mahanagar)",
+      "type": "Zone",
+      "lat": 26.8530,
+      "lng": 80.9470,
+      "zoom": 13,
+      "geojson_file": "wards_lucknow.geojson",
+      "feature_name": "Zone-3"
+    }
+  },
+  {
+    "id": "OFF-ZN-002",
+    "email": "zonal.officer.zone2knp@nirikshan.gov.in",
+    "password": "admin123",
+    "name": "Er. Rakesh Pandey",
+    "designation": "Zonal Executive Officer (Zone-2 South)",
+    "department": "Kanpur Nagar Nigam (Zone-2 South)",
+    "level": "zone",
+    "superior_id": "OFF-DIS-002",
+    "badge": "Zonal Executive Officer",
+    "phone": "+91-512-2612340",
+    "jurisdiction": {
+      "code": "KNP-ZN2",
+      "name": "Zone-2 South (Naubasta / Kidwai Nagar)",
+      "type": "Zone",
+      "lat": 26.4250,
+      "lng": 80.3150,
+      "zoom": 13,
+      "geojson_file": "wards_kanpur.geojson",
+      "feature_name": "Zone-2"
+    }
+  },
+  {
+    "id": "OFF-WD-001",
+    "email": "ward88.engineer@nirikshan.gov.in",
+    "password": "admin123",
+    "name": "Er. Manoj Bajpai",
+    "designation": "Ward Junior Engineer (Civil & Sanitation)",
+    "department": "Kanpur Nagar Nigam - Ward 88",
+    "level": "ward",
+    "superior_id": "OFF-ZN-002",
+    "badge": "Ward Field Officer",
+    "phone": "+91-9450-128833",
+    "jurisdiction": {
+      "code": "WARD_88_KANPUR",
+      "name": "Ward 88 (Naubasta East)",
+      "type": "Ward",
+      "city": "Kanpur",
+      "lat": 26.4194,
+      "lng": 80.3054,
+      "zoom": 15,
+      "geojson_file": "wards_kanpur.geojson",
+      "feature_name": "Ward 88"
+    }
+  },
+  {
+    "id": "OFF-WD-002",
+    "email": "ward12.engineer@nirikshan.gov.in",
+    "password": "admin123",
+    "name": "Er. Shashi Bhushan",
+    "designation": "Ward Junior Engineer (Roads & Drainage)",
+    "department": "Lucknow Nagar Nigam - Ward 12",
+    "level": "ward",
+    "superior_id": "OFF-ZN-001",
+    "badge": "Ward Field Officer",
+    "phone": "+91-9415-331290",
+    "jurisdiction": {
+      "code": "WARD_12_LUCKNOW",
+      "name": "Ward 12 (Hazratganj Central)",
+      "type": "Ward",
+      "city": "Lucknow",
+      "lat": 26.8520,
+      "lng": 80.9420,
+      "zoom": 15,
+      "geojson_file": "wards_lucknow.geojson",
+      "feature_name": "Ward 12"
+    }
+  }
+]

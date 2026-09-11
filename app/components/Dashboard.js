@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import L from "leaflet";
+import { ChevronLeft, ChevronRight, Map, AlertTriangle, Layers, Settings, LogOut, Search } from "lucide-react";
 
 // Mapping icons for different categories
 const ISSUE_ICONS = {
@@ -47,12 +48,60 @@ export default function Dashboard() {
   const [userTrustScore, setUserTrustScore] = useState(50);
   const [userVerifiedOtp, setUserVerifiedOtp] = useState(false);
   const [userVerifiedAadhaar, setUserVerifiedAadhaar] = useState(false);
-  const [userId] = useState("demo-citizen-101");
-  const [authorityRole, setAuthorityRole] = useState("citizen"); // "citizen" | "KNN" | "KDA" | "JAL"
+  const [userId, setUserId] = useState("demo-citizen-101");
+  const [citizenUser, setCitizenUser] = useState(null);
+  const [showCitizenModal, setShowCitizenModal] = useState(false);
+  const [citizenEmail, setCitizenEmail] = useState("rahul.sharma@example.com");
+  const [citizenPassword, setCitizenPassword] = useState("citizen123");
+  const [citizenAuthError, setCitizenAuthError] = useState("");
+  const [authorityRole, setAuthorityRole] = useState("citizen");
   const [viewModerationQueue, setViewModerationQueue] = useState(false);
   const [mapTheme, setMapTheme] = useState("dark"); // "dark" | "street"
   const [isLocating, setIsLocating] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("nirikshan_citizen_user");
+    if (saved) {
+      try {
+        const u = JSON.parse(saved);
+        setCitizenUser(u);
+        setUserId(u.user_id || "demo-citizen-101");
+        setUserTrustScore(u.trust_score || 85);
+      } catch (e) {}
+    }
+  }, []);
+
+  const handleCitizenAuth = async (overrideEmail, overridePass) => {
+    setCitizenAuthError("");
+    const targetEmail = overrideEmail || citizenEmail;
+    const targetPass = overridePass || citizenPassword;
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: targetEmail, password: targetPass, role: "citizen" })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Login failed");
+      localStorage.setItem("nirikshan_citizen_user", JSON.stringify(data.user));
+      localStorage.setItem("nirikshan_citizen_token", data.token);
+      setCitizenUser(data.user);
+      setUserId(data.user.user_id);
+      setUserTrustScore(data.user.trust_score || 85);
+      setShowCitizenModal(false);
+    } catch (err) {
+      setCitizenAuthError(err.message);
+    }
+  };
+
+  const handleCitizenLogout = () => {
+    localStorage.removeItem("nirikshan_citizen_user");
+    localStorage.removeItem("nirikshan_citizen_token");
+    setCitizenUser(null);
+    setUserId("demo-citizen-101");
+    setUserTrustScore(50);
+  };
 
   // Keep refs of active mode and active tab to prevent stale closures in Leaflet events
   const activeTabRef = useRef(activeTab);
@@ -85,6 +134,7 @@ export default function Dashboard() {
   const [uploadedImage, setUploadedImage] = useState(null);
 
   const [hoveredArea, setHoveredArea] = useState(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Map refs
   const mapRef = useRef(null);
@@ -859,6 +909,27 @@ export default function Dashboard() {
 
     userLocationMarkerRef.current = L.marker([lat, lng], { icon }).addTo(map);
   };
+  const handleClosePlace = () => {
+    setSelectedPlace(null);
+    setSelectedLatlng(null);
+    if (selectedLayerRef.current) {
+      if (typeof selectedLayerRef.current.setStyle === "function") {
+        selectedLayerRef.current.setStyle(getPlaceStyle(selectedLayerRef.current.feature, "base"));
+      }
+      selectedLayerRef.current = null;
+    }
+    if (selectedAqiLayerRef.current) {
+      if (typeof selectedAqiLayerRef.current.setStyle === "function") {
+        selectedAqiLayerRef.current.setStyle({ color: "#ffffff", weight: 1.5 });
+      }
+      selectedAqiLayerRef.current = null;
+    }
+    selectedAreaIdRef.current = null;
+    if (selectionMarkerRef.current && mapInstance.current) {
+      mapInstance.current.removeLayer(selectionMarkerRef.current);
+      selectionMarkerRef.current = null;
+    }
+  };
 
   const handleLocateMe = () => {
     if (typeof window === "undefined" || !navigator.geolocation) {
@@ -1247,110 +1318,150 @@ export default function Dashboard() {
 
   return (
     <>
-      <header className="navbar">
-        <div className="brand">
-          <div className="brand-dot"></div>
-          <div>
-            <h1>Nirikshan Ledger</h1>
-            <p>Next.js & MongoDB Civic Quality Mapping</p>
-          </div>
-        </div>
+      <div className="flex h-screen w-screen overflow-hidden bg-slate-950 text-slate-100">
+        {/* SIDEBAR */}
+        <aside 
+          className={`${isSidebarOpen ? 'w-[320px]' : 'w-[80px]'} transition-all duration-300 ease-in-out bg-white/5 backdrop-blur-3xl border-r border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] flex flex-col z-[1000] shrink-0 relative`}
+        >
+          {/* Toggle Button */}
+          <button 
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="absolute -right-3 top-6 bg-slate-800 border border-slate-700 rounded-full p-1 text-white hover:bg-slate-700 z-50 shadow-lg flex items-center justify-center transition-transform hover:scale-110"
+          >
+            {isSidebarOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+          </button>
 
-        <div className="search-wrap">
-          <input
-            id="search-input"
-            type="text"
-            placeholder="Search road, park, home, shop, landmark..."
-            value={searchQuery}
-            onChange={handleSearch}
-            autoComplete="off"
-          />
-          {searchResults.length > 0 && (
-            <ul className="search-results visible">
-              {searchResults.map((f, i) => (
-                <li key={i} onClick={() => selectSearchResult(f)}>
-                  <strong>{f.properties.name}</strong>
-                  <small>{f.properties.type} - {f.properties.address}</small>
-                </li>
-              ))}
-            </ul>
+          <div className={`p-6 transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 overflow-hidden px-0'}`}>
+            <h1 className="text-xl font-bold m-0 text-white flex items-center gap-2 whitespace-nowrap">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)] shrink-0"></span>
+              {isSidebarOpen && "Nirikshan Ledger"}
+            </h1>
+            {isSidebarOpen && <p className="text-xs text-slate-400 mt-1 ml-4 whitespace-nowrap">Civic Quality Mapping</p>}
+          </div>
+
+          <nav className={`flex flex-col gap-2 mt-2 ${isSidebarOpen ? 'px-4' : 'px-3'} transition-all`}>
+            <button 
+              className={`flex items-center gap-3 py-3 rounded-xl border text-sm font-medium transition-all text-left whitespace-nowrap overflow-hidden ${isSidebarOpen ? 'px-4' : 'px-3 justify-center'} ${activeTab === "map" ? "bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border-indigo-500/40 text-white shadow-[0_4px_20px_rgba(99,102,241,0.2)]" : "bg-transparent border-transparent text-slate-400 hover:bg-white/10 hover:text-slate-200"}`} 
+              onClick={() => setActiveTab("map")}
+              title="Map Explorer"
+            >
+              <span className="text-lg shrink-0">🗺️</span>
+              {isSidebarOpen && "Map Explorer"}
+            </button>
+            <button 
+              className={`flex items-center gap-3 py-3 rounded-xl border text-sm font-medium transition-all text-left whitespace-nowrap overflow-hidden ${isSidebarOpen ? 'px-4' : 'px-3 justify-center'} ${activeTab === "citizen" ? "bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border-indigo-500/40 text-white shadow-[0_4px_20px_rgba(99,102,241,0.2)]" : "bg-transparent border-transparent text-slate-400 hover:bg-white/10 hover:text-slate-200"}`} 
+              onClick={() => setActiveTab("citizen")}
+              title="Citizen Grievances"
+            >
+              <span className="text-lg shrink-0">📢</span>
+              {isSidebarOpen && "Citizen Grievances"}
+            </button>
+          </nav>
+
+          {/* MAP MODES IN SIDEBAR */}
+          {activeTab === "map" && isSidebarOpen && (
+            <div className="mt-8 px-4 flex flex-col gap-4 animate-in fade-in slide-in-from-left-4 duration-500 mb-6 overflow-y-auto custom-scrollbar">
+              <div className="bg-white/5 rounded-2xl border border-white/10 p-5 shadow-inner backdrop-blur-md">
+                <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <Layers size={14} className="text-indigo-400" /> Map Visual Modes
+                </h4>
+                <div className="flex flex-col gap-2">
+                  <button className={`w-full text-left px-3 py-2 text-sm rounded-lg border transition-all ${activeMode === "explore" ? "bg-indigo-500/30 border-indigo-500/50 text-white" : "bg-black/20 border-transparent text-slate-400 hover:bg-white/10 hover:text-slate-200"}`} onClick={() => setActiveMode("explore")}>
+                    <span className="mr-2">🛣️</span> Explore & Rate
+                  </button>
+                  <button className={`w-full text-left px-3 py-2 text-sm rounded-lg border transition-all ${activeMode === "aqi" ? "bg-indigo-500/30 border-indigo-500/50 text-white" : "bg-black/20 border-transparent text-slate-400 hover:bg-white/10 hover:text-slate-200"}`} onClick={() => setActiveMode("aqi")}>
+                    <span className="mr-2">📊</span> Civic AQI Layers
+                  </button>
+                  <button className={`w-full text-left px-3 py-2 text-sm rounded-lg border transition-all ${activeMode === "heatmap" ? "bg-indigo-500/30 border-indigo-500/50 text-white" : "bg-black/20 border-transparent text-slate-400 hover:bg-white/10 hover:text-slate-200"}`} onClick={() => setActiveMode("heatmap")}>
+                    <span className="mr-2">🔥</span> Complaint Heatmap
+                  </button>
+                </div>
+                
+                <div className="mt-5 pt-4 border-t border-white/10">
+                  <span className="text-xs text-slate-400 font-medium block mb-3">Map Theme:</span>
+                  <div className="flex gap-2">
+                    <button className={`flex-1 py-2 text-xs rounded-lg border transition-all ${mapTheme === "dark" ? "bg-indigo-500/30 border-indigo-500/50 text-white shadow-lg shadow-indigo-500/20" : "bg-black/20 border-white/5 text-slate-400 hover:bg-white/10"}`} onClick={() => setMapTheme("dark")}>🌑 Dark</button>
+                    <button className={`flex-1 py-2 text-xs rounded-lg border transition-all ${mapTheme === "street" ? "bg-indigo-500/30 border-indigo-500/50 text-white shadow-lg shadow-indigo-500/20" : "bg-black/20 border-white/5 text-slate-400 hover:bg-white/10"}`} onClick={() => setMapTheme("street")}>🗺️ Street</button>
+                    <button className={`flex-1 py-2 text-xs rounded-lg border transition-all ${mapTheme === "satellite" ? "bg-indigo-500/30 border-indigo-500/50 text-white shadow-lg shadow-indigo-500/20" : "bg-black/20 border-white/5 text-slate-400 hover:bg-white/10"}`} onClick={() => setMapTheme("satellite")}>🛰️ Satellite</button>
+                  </div>
+                </div>
+
+                <div className="mt-5 pt-4 border-t border-white/10">
+                  <span className="text-xs text-slate-400 font-medium block mb-3">Focus City:</span>
+                  <div className="flex gap-2">
+                    <button className="flex-1 py-2 text-xs rounded-lg bg-black/20 border border-white/5 text-slate-300 hover:bg-white/10 hover:text-white transition-all shadow-sm" onClick={() => { if (mapInstance.current) { mapInstance.current.flyTo([26.4499, 80.3319], 13, { duration: 1.2 }); } }} title="Fly to Kanpur Wards">🏭 Kanpur</button>
+                    <button className="flex-1 py-2 text-xs rounded-lg bg-black/20 border border-white/5 text-slate-300 hover:bg-white/10 hover:text-white transition-all shadow-sm" onClick={() => { if (mapInstance.current) { mapInstance.current.flyTo([26.8467, 80.9462], 13, { duration: 1.2 }); } }} title="Fly to Lucknow Wards">🏛️ Lucknow</button>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
-        </div>
+        </aside>
 
-        <nav className="nav-links">
-          <button className={`nav-btn ${activeTab === "map" ? "active" : ""}`} onClick={() => setActiveTab("map")}>Map Explorer</button>
-          <button className={`nav-btn ${activeTab === "citizen" ? "active" : ""}`} onClick={() => setActiveTab("citizen")}>Citizen Dashboard</button>
-          <button className={`nav-btn ${activeTab === "governance" ? "active" : ""}`} onClick={() => setActiveTab("governance")}>Governance Console</button>
-        </nav>
-      </header>
-
-      <main className={`layout tab-${activeTab}`}>
-        <section className="map-panel">
-          <div className="map-mode-control">
-            <h4>Map Visual Modes</h4>
-            <div className="mode-buttons">
-              <button className={`mode-btn ${activeMode === "explore" ? "active" : ""}`} onClick={() => setActiveMode("explore")}>🛣️ Explore & Rate</button>
-              <button className={`mode-btn ${activeMode === "aqi" ? "active" : ""}`} onClick={() => setActiveMode("aqi")}>📊 Civic AQI Layers</button>
-              <button className={`mode-btn ${activeMode === "heatmap" ? "active" : ""}`} onClick={() => setActiveMode("heatmap")}>🔥 Complaint Heatmap</button>
-            </div>
-            
-            <div className="theme-toggle-container" style={{ marginTop: "12px", borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: "8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: "0.8rem", color: "rgba(255, 255, 255, 0.7)", fontWeight: "500" }}>Map Theme:</span>
-              <div className="mode-buttons" style={{ gap: "4px" }}>
-                <button 
-                  className={`mode-btn ${mapTheme === "dark" ? "active" : ""}`} 
-                  onClick={() => setMapTheme("dark")}
-                  style={{ fontSize: "0.72rem", padding: "4px 8px" }}
-                >
-                  🌑 Dark
-                </button>
-                <button 
-                  className={`mode-btn ${mapTheme === "street" ? "active" : ""}`} 
-                  onClick={() => setMapTheme("street")}
-                  style={{ fontSize: "0.72rem", padding: "4px 8px" }}
-                >
-                  🗺️ Street
-                </button>
-                <button 
-                  className={`mode-btn ${mapTheme === "satellite" ? "active" : ""}`} 
-                  onClick={() => setMapTheme("satellite")}
-                  style={{ fontSize: "0.72rem", padding: "4px 8px" }}
-                >
-                  🛰️ Satellite
-                </button>
-              </div>
+        {/* MAIN CONTENT WRAPPER */}
+        <div className="flex-1 flex flex-col relative overflow-hidden min-w-0">
+          {/* TOP NAVBAR */}
+          <header className="h-[72px] flex items-center justify-between px-8 bg-slate-950/60 backdrop-blur-2xl border-b border-slate-800 z-[900] shrink-0">
+            <div className="relative w-96">
+              <input
+                id="search-input"
+                type="text"
+                placeholder="Search road, park, home, shop, landmark..."
+                value={searchQuery}
+                onChange={handleSearch}
+                autoComplete="off"
+                className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-full px-4 py-2 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all placeholder:text-slate-500"
+              />
+              {searchResults.length > 0 && (
+                <ul className="absolute top-full mt-2 left-0 right-0 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden z-50">
+                  {searchResults.map((f, i) => (
+                    <li key={i} onClick={() => selectSearchResult(f)} className="px-4 py-3 hover:bg-slate-700 cursor-pointer border-b border-slate-700/50 last:border-0 transition-colors">
+                      <strong className="block text-sm text-slate-100">{f.properties.name}</strong>
+                      <small className="text-xs text-slate-400">{f.properties.type} - {f.properties.address}</small>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
-            <div className="city-toggle-container" style={{ marginTop: "10px", borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: "8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: "0.8rem", color: "rgba(255, 255, 255, 0.7)", fontWeight: "500" }}>Focus City:</span>
-              <div className="mode-buttons" style={{ gap: "6px" }}>
+            <div className="flex items-center gap-4">
+              {citizenUser ? (
+                <div className="relative group">
+                  <button className="flex items-center gap-2 bg-slate-800/80 border border-slate-700 rounded-full px-4 py-1.5 hover:bg-slate-700 transition-colors">
+                    <span className="text-cyan-400 font-semibold text-sm">👤 {citizenUser.name}</span>
+                    <span className="text-emerald-400 text-xs font-mono">⭐ {userTrustScore}</span>
+                    <span className="text-[10px] text-slate-400 opacity-60 ml-1">▼</span>
+                  </button>
+                  <div className="absolute right-0 top-full mt-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible translate-y-2 group-hover:translate-y-0 transition-all duration-200 z-[2000] overflow-hidden">
+                    <div className="px-5 py-3 border-b border-slate-800">
+                      <div className="text-xs text-slate-400">Signed in as</div>
+                      <div className="text-sm font-semibold text-slate-100 truncate">{citizenUser.email || citizenEmail}</div>
+                    </div>
+                    <div className="py-1">
+                      <button className="w-full text-left px-5 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">My Profile</button>
+                      <button className="w-full text-left px-5 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">My Reports</button>
+                      <button className="w-full text-left px-5 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Settings</button>
+                    </div>
+                    <div className="h-px bg-slate-800 my-1"></div>
+                    <div className="py-1">
+                      <button className="w-full text-left px-5 py-2 text-sm text-rose-400 hover:bg-rose-500/10 transition-colors" onClick={handleCitizenLogout}>Sign Out</button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
                 <button 
-                  className="mode-btn" 
-                  onClick={() => {
-                    if (mapInstance.current) {
-                      mapInstance.current.flyTo([26.4499, 80.3319], 13, { duration: 1.2 });
-                    }
-                  }}
-                  style={{ fontSize: "0.74rem", padding: "4px 9px" }}
-                  title="Fly to Kanpur Wards"
+                  onClick={() => setShowCitizenModal(true)} 
+                  className="bg-cyan-500/15 border border-cyan-500/40 text-cyan-400 text-sm font-semibold px-5 py-2 rounded-full hover:bg-cyan-500/25 transition-all"
                 >
-                  🏭 Kanpur
+                  👤 Citizen Sign In
                 </button>
-                <button 
-                  className="mode-btn" 
-                  onClick={() => {
-                    if (mapInstance.current) {
-                      mapInstance.current.flyTo([26.8467, 80.9462], 13, { duration: 1.2 });
-                    }
-                  }}
-                  style={{ fontSize: "0.74rem", padding: "4px 9px" }}
-                  title="Fly to Lucknow Wards"
-                >
-                  🏛️ Lucknow
-                </button>
-              </div>
+              )}
             </div>
-          </div>
+          </header>
+
+          <main className={`flex-1 relative overflow-hidden w-full h-full p-0`}>
+        <section className={`w-full h-full relative ${activeTab === 'map' ? 'block' : 'hidden'}`}>
+          {/* Map controls moved to sidebar */}
 
           {/* Live Location Preview HUD */}
           <div className="location-preview-hud">
@@ -1392,7 +1503,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          <div ref={mapRef} id="map"></div>
+          <div ref={mapRef} id="map" className="absolute inset-0 z-0"></div>
 
           <div className="map-perf-badge" title="Hardware accelerated canvas & progressive background streaming">
             <span className={`sync-dot ${bgSyncStatus}`}></span>
@@ -1512,29 +1623,37 @@ export default function Dashboard() {
         <aside className="sheet">
           {activeTab === "map" && (
             <div id="view-map" className="panel-view active">
-              <div className="card place-card" id="place-summary-card">
-                <p id="place-type" className="place-type">
-                  {selectedPlace ? `${selectedPlace.place.properties.type} ${selectedPlace.is_virtual ? "(pin drop)" : ""}` : "Select a place"}
-                </p>
-                <h2 id="place-name">{selectedPlace ? selectedPlace.place.properties.name : "No Location Selected"}</h2>
-                <p id="place-address" className="place-address">
-                  {selectedPlace ? (selectedPlace.place.properties.address || "No address metadata") : "Click on any road, park, landmark, or pin a custom point on the map to rate quality or submit complaints."}
-                </p>
-
-                {selectedPlace && (
-                  <>
-                    <div className="metric-grid">
-                      <div><label>Quality Rating</label><strong>{selectedPlace.metrics.avg_rating ? `${selectedPlace.metrics.avg_rating}/5` : "No ratings"}</strong></div>
-                      <div><label>Reviews</label><strong>{selectedPlace.metrics.review_count}</strong></div>
-                      <div><label>Complaints</label><strong>{selectedPlace.metrics.complaint_count}</strong></div>
-                      <div><label>Pending</label><strong>{selectedPlace.metrics.pending_complaints}</strong></div>
-                    </div>
-                    <p id="place-jurisdiction" className="place-jurisdiction">
-                      Jurisdiction: {selectedPlace.area ? `${selectedPlace.area.name}, ${selectedPlace.area.city} | Auth: ${selectedPlace.area.authority}` : "Outside mapped region"}
+              {selectedPlace && (
+                <div className="card place-card" id="place-summary-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <p id="place-type" className="place-type">
+                      {`${selectedPlace.place.properties.type} ${selectedPlace.is_virtual ? "(pin drop)" : ""}`}
                     </p>
-                  </>
-                )}
-              </div>
+                    <button 
+                      onClick={handleClosePlace}
+                      className="close-place-btn"
+                      style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px', fontSize: '1.2rem', lineHeight: 1 }}
+                      title="Close"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <h2 id="place-name">{selectedPlace.place.properties.name}</h2>
+                  <p id="place-address" className="place-address">
+                    {selectedPlace.place.properties.address || "No address metadata"}
+                  </p>
+
+                  <div className="metric-grid">
+                    <div><label>Quality Rating</label><strong>{selectedPlace.metrics.avg_rating ? `${selectedPlace.metrics.avg_rating}/5` : "No ratings"}</strong></div>
+                    <div><label>Reviews</label><strong>{selectedPlace.metrics.review_count}</strong></div>
+                    <div><label>Complaints</label><strong>{selectedPlace.metrics.complaint_count}</strong></div>
+                    <div><label>Pending</label><strong>{selectedPlace.metrics.pending_complaints}</strong></div>
+                  </div>
+                  <p id="place-jurisdiction" className="place-jurisdiction">
+                    Jurisdiction: {selectedPlace.area ? `${selectedPlace.area.name}, ${selectedPlace.area.city} | Auth: ${selectedPlace.area.authority}` : "Outside mapped region"}
+                  </p>
+                </div>
+              )}
 
               {selectedPlace && (
                 <>
@@ -1738,18 +1857,41 @@ export default function Dashboard() {
 
           {activeTab === "governance" && (
             <div id="view-governance" className="panel-view active">
-              <div className="card role-card">
-                <h3>Jurisdiction Access Control</h3>
-                <label>Select Authority Session
-                  <select value={authorityRole} onChange={(e) => setAuthorityRole(e.target.value)} id="role-selector">
-                    <option value="citizen">👤 Public View (Leaderboards & Analytics)</option>
-                    <option value="KNN">🏢 Kanpur Nagar Nigam (Officer Console)</option>
-                    <option value="KDA">📐 Kanpur Development Authority (Officer Console)</option>
-                    <option value="LNN">🏢 Lucknow Nagar Nigam (Officer Console)</option>
-                    <option value="LDA">📐 Lucknow Development Authority (Officer Console)</option>
-                    <option value="JAL">🚰 Jal Kal Vibhag (Officer Console)</option>
-                  </select>
-                </label>
+              {/* Official Government Officer Portal Notice */}
+              <div className="card role-card" style={{ background: "linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(15, 23, 42, 0.95))", border: "1px solid rgba(245, 158, 11, 0.35)", padding: "16px", borderRadius: "12px", marginBottom: "16px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
+                  <div>
+                    <span style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "1px", color: "#f59e0b", fontWeight: "bold", display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span>🛡️</span>
+                      <span>Administrative Officer Console</span>
+                    </span>
+                    <h3 style={{ margin: "4px 0 2px 0", fontSize: "1.05rem", color: "#ffffff", fontWeight: "bold" }}>
+                      Government Grievance Command Portal
+                    </h3>
+                    <p style={{ margin: 0, fontSize: "0.78rem", color: "#94a3b8" }}>
+                      Administrative officers have a separate, dedicated command site with hierarchy controls, jurisdiction maps, inter-department memos, and budget approvals.
+                    </p>
+                  </div>
+                  <a
+                    href="/officer/login"
+                    style={{
+                      background: "linear-gradient(to right, #f59e0b, #ea580c)",
+                      color: "#020617",
+                      fontWeight: "bold",
+                      fontSize: "0.82rem",
+                      padding: "8px 16px",
+                      borderRadius: "8px",
+                      textDecoration: "none",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      boxShadow: "0 4px 12px rgba(245, 158, 11, 0.25)"
+                    }}
+                  >
+                    <span>Officer Portal Login</span>
+                    <span>→</span>
+                  </a>
+                </div>
               </div>
 
               {/* Leaderboard */}
@@ -1792,72 +1934,6 @@ export default function Dashboard() {
                 </ul>
               </div>
 
-              {/* Officer Workspace */}
-              {authorityRole !== "citizen" && (
-                <div className="card officer-workspace" id="officer-panel">
-                  <div className="workspace-header flex justify-between items-center mb-2">
-                    <h3 id="officer-workspace-title">{authorityRole} Officer Workspace</h3>
-                    <span className="badge-active-jurisdiction bg-green-500/10 text-green-400 border border-green-500/20 px-2 py-0.5 rounded text-[0.7rem]">Admin Jurisdiction Active</span>
-                  </div>
-                  
-                  <div className="workspace-desc alert-info text-[0.74rem]">
-                    🚫 Complaints are permanently recorded in the civic ledger and cannot be deleted. All state transitions are logged.
-                  </div>
-
-                  <div className="complaints-filter-group mt-2">
-                    <label className="text-[0.8rem] flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={viewModerationQueue}
-                        onChange={(e) => setViewModerationQueue(e.target.checked)}
-                        id="chk-moderation-queue"
-                      />
-                      View Pending AI Moderation Queue
-                    </label>
-                  </div>
-
-                  <div className="officer-complaints-box mt-3">
-                    <h4 className="text-[0.9rem] font-medium border-b border-slate-800 pb-1 mb-2">Assigned Civic Complaints</h4>
-                    <ul id="officer-complaints-list" className="stack-list">
-                      {officerComplaints.length === 0 ? (
-                        <li className="muted text-center py-3">No pending complaints assigned to this jurisdiction.</li>
-                      ) : (
-                        officerComplaints.map((c, i) => (
-                          <li key={i} className={c.escalated ? "escalated-pulse" : ""}>
-                            <strong>
-                              <span>{ISSUE_ICONS[c.issue_type] || "📍"} {c.issue_type} - {c.place_name}</span>
-                              <span className={`badge-status ${c.status.toLowerCase().replace(" ", "")}`}>{c.status}</span>
-                            </strong>
-                            <p>{c.description}</p>
-                            <p className="text-[0.72rem] text-slate-400">trust score: {c.user_trust_score}</p>
-                            <div className="mt-2 flex gap-1 justify-end">
-                              {c.status === "Submitted" && (
-                                <button onClick={() => handleStatusAdvance(c.complaint_id, "Verified")} className="btn-verify py-1 px-2 w-auto mt-0">Verify Issue</button>
-                              )}
-                              {c.status === "Verified" && (
-                                <button onClick={() => handleStatusAdvance(c.complaint_id, "Assigned")} className="btn-verify py-1 px-2 w-auto mt-0">Assign Team</button>
-                              )}
-                              {c.status === "Assigned" && (
-                                <button onClick={() => handleStatusAdvance(c.complaint_id, "In Progress")} className="btn-verify py-1 px-2 w-auto mt-0">Start Work</button>
-                              )}
-                              {c.status === "In Progress" && (
-                                <button onClick={() => handleStatusAdvance(c.complaint_id, "Resolved")} className="btn-verify py-1 px-2 w-auto mt-0">Mark Resolved</button>
-                              )}
-                              {c.status === "Moderation" && (
-                                <>
-                                  <button onClick={() => handleStatusAdvance(c.complaint_id, "Submitted")} className="btn-confirm py-1 px-2 w-auto mt-0">Approve</button>
-                                  <button onClick={() => handleStatusAdvance(c.complaint_id, "Closed")} className="btn-dispute py-1 px-2 w-auto mt-0">Reject</button>
-                                </>
-                              )}
-                            </div>
-                          </li>
-                        ))
-                      )}
-                    </ul>
-                  </div>
-                </div>
-              )}
-
               {/* CSV Export */}
               <div className="card export-card">
                 <h3>Civic Data Analytics Portal</h3>
@@ -1872,7 +1948,99 @@ export default function Dashboard() {
             </div>
           )}
         </aside>
-      </main>
+          </main>
+        </div> {/* END app-main */}
+      </div> {/* END app-container */}
+
+      {/* Citizen Authentication Modal */}
+      {showCitizenModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">👤</span>
+                <h3 className="text-sm font-bold text-white">Citizen Sign In & Registration</h3>
+              </div>
+              <button onClick={() => setShowCitizenModal(false)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+
+            {citizenAuthError && (
+              <div className="p-2.5 rounded bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
+                ⚠️ {citizenAuthError}
+              </div>
+            )}
+
+            {/* 1-Click Citizen Presets for Instant Testing */}
+            <div>
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">
+                ⚡ Quick Citizen Test Profiles
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleCitizenAuth("rahul.sharma@example.com", "citizen123")}
+                  className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-cyan-500/50 text-left transition-colors group"
+                >
+                  <span className="text-xs font-bold text-white block group-hover:text-cyan-300">Rahul Sharma</span>
+                  <span className="text-[10px] text-slate-400">Hazratganj, Lucknow</span>
+                  <span className="text-[9px] text-emerald-400 block mt-0.5">85 Trust Score</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCitizenAuth("priya.verma@example.com", "citizen123")}
+                  className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-cyan-500/50 text-left transition-colors group"
+                >
+                  <span className="text-xs font-bold text-white block group-hover:text-cyan-300">Priya Verma</span>
+                  <span className="text-[10px] text-slate-400">Naubasta, Kanpur</span>
+                  <span className="text-[9px] text-emerald-400 block mt-0.5">90 Trust Score</span>
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={(e) => { e.preventDefault(); handleCitizenAuth(); }} className="space-y-3 pt-2 border-t border-slate-800">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1">Email Address</label>
+                <input
+                  type="email"
+                  value={citizenEmail}
+                  onChange={(e) => setCitizenEmail(e.target.value)}
+                  required
+                  placeholder="your.email@example.com"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-200"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1">Password</label>
+                <input
+                  type="password"
+                  value={citizenPassword}
+                  onChange={(e) => setCitizenPassword(e.target.value)}
+                  required
+                  placeholder="••••••••"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-200"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCitizenModal(false)}
+                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20"
+                >
+                  Sign In
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 }

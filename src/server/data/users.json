@@ -1,0 +1,28 @@
+[
+  {
+    "id": "USER-CIT-001",
+    "email": "rahul.sharma@example.com",
+    "password": "citizen123",
+    "name": "Rahul Sharma",
+    "role": "citizen",
+    "phone": "+91-98765-43210",
+    "address": "42, Ashok Marg, Hazratganj, Lucknow",
+    "city": "Lucknow",
+    "ward": "Ward 12 (Hazratganj Central)",
+    "trust_score": 85,
+    "created_at": "2026-01-15T10:00:00.000Z"
+  },
+  {
+    "id": "USER-CIT-002",
+    "email": "priya.verma@example.com",
+    "password": "citizen123",
+    "name": "Priya Verma",
+    "role": "citizen",
+    "phone": "+91-98390-11223",
+    "address": "B-14, Hanspuram, Naubasta, Kanpur",
+    "city": "Kanpur",
+    "ward": "Ward 88 (Naubasta East)",
+    "trust_score": 90,
+    "created_at": "2026-01-20T11:30:00.000Z"
+  }
+]

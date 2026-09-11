@@ -1,0 +1,32 @@
+[
+  {
+    "id": "TSK-2026-012",
+    "assigned_by_id": "OFF-ZN-002",
+    "assigned_by_name": "Er. Rakesh Pandey (Zonal Executive Officer)",
+    "assigned_to_id": "OFF-WD-001",
+    "assigned_to_name": "Er. Manoj Bajpai",
+    "assigned_to_designation": "Ward Junior Engineer (Ward 88)",
+    "task_type": "DIRECT_INSPECTION",
+    "title": "Immediate Site Verification: Naubasta Main Pothole Cluster",
+    "instructions": "Inspect road damage reported in Complaint cmp-001 with Junior Assistant. Verify whether deep sub-base compaction is required and submit site photographs on Nirikshan ledger.",
+    "deadline": "2026-02-23T18:00:00.000Z",
+    "priority": "High",
+    "status": "In Progress",
+    "created_at": "2026-02-20T10:00:00.000Z"
+  },
+  {
+    "id": "TSK-2026-013",
+    "assigned_by_id": "OFF-DIS-001",
+    "assigned_by_name": "Vikramaditya Rao, IAS (DM Lucknow)",
+    "assigned_to_id": "OFF-ZN-001",
+    "assigned_to_name": "Er. Devendra Nath Shukla",
+    "assigned_to_designation": "Zonal Executive Officer (Zone-3)",
+    "task_type": "WARD_OVERSIGHT",
+    "title": "Comprehensive Sanitation & Drainage Audit - Hazratganj Market Corridor",
+    "instructions": "Conduct a night-time cleanliness audit with LNN health officers. Ensure all garbage compactor bins are cleared twice daily during festive rush.",
+    "deadline": "2026-02-24T20:00:00.000Z",
+    "priority": "Critical",
+    "status": "Assigned",
+    "created_at": "2026-02-20T14:30:00.000Z"
+  }
+]
