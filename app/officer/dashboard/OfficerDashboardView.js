@@ -242,7 +242,7 @@ export default function OfficerDashboardView() {
       const getTileUrl = (theme) => {
         if (theme === "street") return "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
         if (theme === "satellite") return "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
-        return "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+        return "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}";
       };
 
       const tileLayer = L.tileLayer(getTileUrl(mapTheme), {
@@ -268,7 +268,7 @@ export default function OfficerDashboardView() {
     const urls = {
       street: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
       satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-      dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+      dark: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
     };
     mapInstanceRef.current.tileLayer.setUrl(urls[mapTheme] || urls.dark);
   }, [mapTheme]);
