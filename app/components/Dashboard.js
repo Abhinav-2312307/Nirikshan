@@ -1365,16 +1365,39 @@ export default function Dashboard() {
                 <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2">
                   <Layers size={14} className="text-indigo-400" /> Map Visual Modes
                 </h4>
-                <div className="flex flex-col gap-2">
-                  <button className={`w-full text-left px-3 py-2 text-sm rounded-lg border transition-all ${activeMode === "explore" ? "bg-indigo-500/30 border-indigo-500/50 text-white" : "bg-black/20 border-transparent text-slate-400 hover:bg-white/10 hover:text-slate-200"}`} onClick={() => setActiveMode("explore")}>
-                    <span className="mr-2">🛣️</span> Explore & Rate
-                  </button>
-                  <button className={`w-full text-left px-3 py-2 text-sm rounded-lg border transition-all ${activeMode === "aqi" ? "bg-indigo-500/30 border-indigo-500/50 text-white" : "bg-black/20 border-transparent text-slate-400 hover:bg-white/10 hover:text-slate-200"}`} onClick={() => setActiveMode("aqi")}>
-                    <span className="mr-2">📊</span> Civic AQI Layers
-                  </button>
-                  <button className={`w-full text-left px-3 py-2 text-sm rounded-lg border transition-all ${activeMode === "heatmap" ? "bg-indigo-500/30 border-indigo-500/50 text-white" : "bg-black/20 border-transparent text-slate-400 hover:bg-white/10 hover:text-slate-200"}`} onClick={() => setActiveMode("heatmap")}>
-                    <span className="mr-2">🔥</span> Complaint Heatmap
-                  </button>
+                <div className="radio-input">
+                  <div className="glass">
+                    <div className="glass-inner"></div>
+                  </div>
+                  <div className="selector">
+                    <div className="choice" onClick={() => setActiveMode("explore")}>
+                      <div>
+                        <input className="choice-circle" checked={activeMode === "explore"} readOnly type="radio" id="mode-explore" />
+                        <div className="ball"></div>
+                      </div>
+                      <label htmlFor="mode-explore" className="choice-name">
+                        <span className="text-lg"></span> Explore & Rate
+                      </label>
+                    </div>
+                    <div className="choice" onClick={() => setActiveMode("aqi")}>
+                      <div>
+                        <input className="choice-circle" checked={activeMode === "aqi"} readOnly type="radio" id="mode-aqi" />
+                        <div className="ball"></div>
+                      </div>
+                      <label htmlFor="mode-aqi" className="choice-name">
+                        <span className="text-lg"></span> Civic AQI Layers
+                      </label>
+                    </div>
+                    <div className="choice" onClick={() => setActiveMode("heatmap")}>
+                      <div>
+                        <input className="choice-circle" checked={activeMode === "heatmap"} readOnly type="radio" id="mode-heatmap" />
+                        <div className="ball"></div>
+                      </div>
+                      <label htmlFor="mode-heatmap" className="choice-name">
+                        <span className="text-lg"></span> Complaint Heatmap
+                      </label>
+                    </div>
+                  </div>
                 </div>
                 
                 <div className="mt-5 pt-4 border-t border-white/10">
