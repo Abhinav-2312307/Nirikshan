@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import L from "leaflet";
+import { ChevronLeft, ChevronRight, Map, AlertTriangle, Layers, Settings, LogOut, Search } from "lucide-react";
 
 // Mapping icons for different categories
 const ISSUE_ICONS = {
@@ -133,6 +134,7 @@ export default function Dashboard() {
   const [uploadedImage, setUploadedImage] = useState(null);
 
   const [hoveredArea, setHoveredArea] = useState(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Map refs
   const mapRef = useRef(null);
@@ -1316,142 +1318,150 @@ export default function Dashboard() {
 
   return (
     <>
-      <header className="navbar">
-        <div className="brand">
-          <div className="brand-dot"></div>
-          <div>
-            <h1>Nirikshan Ledger</h1>
-            <p>Next.js & MongoDB Civic Quality Mapping</p>
-          </div>
-        </div>
-
-        <div className="search-wrap">
-          <input
-            id="search-input"
-            type="text"
-            placeholder="Search road, park, home, shop, landmark..."
-            value={searchQuery}
-            onChange={handleSearch}
-            autoComplete="off"
-          />
-          {searchResults.length > 0 && (
-            <ul className="search-results visible">
-              {searchResults.map((f, i) => (
-                <li key={i} onClick={() => selectSearchResult(f)}>
-                  <strong>{f.properties.name}</strong>
-                  <small>{f.properties.type} - {f.properties.address}</small>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <nav className="nav-links" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <button className={`nav-btn ${activeTab === "map" ? "active" : ""}`} onClick={() => setActiveTab("map")}>Map Explorer</button>
-          <button className={`nav-btn ${activeTab === "citizen" ? "active" : ""}`} onClick={() => setActiveTab("citizen")}>Citizen Grievances</button>
-          <button className={`nav-btn ${activeTab === "governance" ? "active" : ""}`} onClick={() => setActiveTab("governance")}>Authority Transparency</button>
-
-          {citizenUser ? (
-            <div className="citizen-pill" style={{ display: "flex", alignItems: "center", gap: "8px", background: "rgba(30, 41, 59, 0.8)", border: "1px solid rgba(51, 65, 85, 0.8)", borderRadius: "8px", padding: "4px 10px", fontSize: "0.75rem" }}>
-              <span style={{ color: "#38bdf8", fontWeight: "600" }}>👤 {citizenUser.name}</span>
-              <span style={{ color: "#34d399", fontSize: "0.7rem", fontFamily: "monospace" }}>⭐ {userTrustScore}</span>
-              <button onClick={handleCitizenLogout} style={{ background: "transparent", border: "none", color: "#f87171", cursor: "pointer", fontSize: "0.7rem", padding: "0 2px" }} title="Sign Out">✕</button>
-            </div>
-          ) : (
-            <button className="nav-btn" onClick={() => setShowCitizenModal(true)} style={{ background: "rgba(56, 189, 248, 0.15)", border: "1px solid rgba(56, 189, 248, 0.4)", color: "#38bdf8", fontSize: "0.78rem" }}>
-              👤 Citizen Sign In
-            </button>
-          )}
-
-          <a
-            href="/officer/login"
-            className="nav-btn officer-portal-btn"
-            style={{
-              background: "linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(234, 88, 12, 0.2))",
-              border: "1px solid rgba(245, 158, 11, 0.5)",
-              color: "#fcd34d",
-              fontWeight: "bold",
-              fontSize: "0.78rem",
-              textDecoration: "none",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "4px",
-              boxShadow: "0 2px 8px rgba(245, 158, 11, 0.15)"
-            }}
+      <div className="flex h-screen w-screen overflow-hidden bg-slate-950 text-slate-100">
+        {/* SIDEBAR */}
+        <aside 
+          className={`${isSidebarOpen ? 'w-[320px]' : 'w-[80px]'} transition-all duration-300 ease-in-out bg-white/5 backdrop-blur-3xl border-r border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] flex flex-col z-[1000] shrink-0 relative`}
+        >
+          {/* Toggle Button */}
+          <button 
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="absolute -right-3 top-6 bg-slate-800 border border-slate-700 rounded-full p-1 text-white hover:bg-slate-700 z-50 shadow-lg flex items-center justify-center transition-transform hover:scale-110"
           >
-            <span>🏛️ Official Officer Portal</span>
-            <span>→</span>
-          </a>
-        </nav>
-      </header>
+            {isSidebarOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+          </button>
 
-      <main className={`layout tab-${activeTab}`}>
-        <section className="map-panel">
-          <div className="map-mode-control">
-            <h4>Map Visual Modes</h4>
-            <div className="mode-buttons">
-              <button className={`mode-btn ${activeMode === "explore" ? "active" : ""}`} onClick={() => setActiveMode("explore")}>🛣️ Explore & Rate</button>
-              <button className={`mode-btn ${activeMode === "aqi" ? "active" : ""}`} onClick={() => setActiveMode("aqi")}>📊 Civic AQI Layers</button>
-              <button className={`mode-btn ${activeMode === "heatmap" ? "active" : ""}`} onClick={() => setActiveMode("heatmap")}>🔥 Complaint Heatmap</button>
-            </div>
-            
-            <div className="theme-toggle-container" style={{ marginTop: "12px", borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: "8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: "0.8rem", color: "rgba(255, 255, 255, 0.7)", fontWeight: "500" }}>Map Theme:</span>
-              <div className="mode-buttons" style={{ gap: "4px" }}>
-                <button 
-                  className={`mode-btn ${mapTheme === "dark" ? "active" : ""}`} 
-                  onClick={() => setMapTheme("dark")}
-                  style={{ fontSize: "0.72rem", padding: "4px 8px" }}
-                >
-                  🌑 Dark
-                </button>
-                <button 
-                  className={`mode-btn ${mapTheme === "street" ? "active" : ""}`} 
-                  onClick={() => setMapTheme("street")}
-                  style={{ fontSize: "0.72rem", padding: "4px 8px" }}
-                >
-                  🗺️ Street
-                </button>
-                <button 
-                  className={`mode-btn ${mapTheme === "satellite" ? "active" : ""}`} 
-                  onClick={() => setMapTheme("satellite")}
-                  style={{ fontSize: "0.72rem", padding: "4px 8px" }}
-                >
-                  🛰️ Satellite
-                </button>
-              </div>
-            </div>
-
-            <div className="city-toggle-container" style={{ marginTop: "10px", borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: "8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: "0.8rem", color: "rgba(255, 255, 255, 0.7)", fontWeight: "500" }}>Focus City:</span>
-              <div className="mode-buttons" style={{ gap: "6px" }}>
-                <button 
-                  className="mode-btn" 
-                  onClick={() => {
-                    if (mapInstance.current) {
-                      mapInstance.current.flyTo([26.4499, 80.3319], 13, { duration: 1.2 });
-                    }
-                  }}
-                  style={{ fontSize: "0.74rem", padding: "4px 9px" }}
-                  title="Fly to Kanpur Wards"
-                >
-                  🏭 Kanpur
-                </button>
-                <button 
-                  className="mode-btn" 
-                  onClick={() => {
-                    if (mapInstance.current) {
-                      mapInstance.current.flyTo([26.8467, 80.9462], 13, { duration: 1.2 });
-                    }
-                  }}
-                  style={{ fontSize: "0.74rem", padding: "4px 9px" }}
-                  title="Fly to Lucknow Wards"
-                >
-                  🏛️ Lucknow
-                </button>
-              </div>
-            </div>
+          <div className={`p-6 transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 overflow-hidden px-0'}`}>
+            <h1 className="text-xl font-bold m-0 text-white flex items-center gap-2 whitespace-nowrap">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)] shrink-0"></span>
+              {isSidebarOpen && "Nirikshan Ledger"}
+            </h1>
+            {isSidebarOpen && <p className="text-xs text-slate-400 mt-1 ml-4 whitespace-nowrap">Civic Quality Mapping</p>}
           </div>
+
+          <nav className={`flex flex-col gap-2 mt-2 ${isSidebarOpen ? 'px-4' : 'px-3'} transition-all`}>
+            <button 
+              className={`flex items-center gap-3 py-3 rounded-xl border text-sm font-medium transition-all text-left whitespace-nowrap overflow-hidden ${isSidebarOpen ? 'px-4' : 'px-3 justify-center'} ${activeTab === "map" ? "bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border-indigo-500/40 text-white shadow-[0_4px_20px_rgba(99,102,241,0.2)]" : "bg-transparent border-transparent text-slate-400 hover:bg-white/10 hover:text-slate-200"}`} 
+              onClick={() => setActiveTab("map")}
+              title="Map Explorer"
+            >
+              <span className="text-lg shrink-0">🗺️</span>
+              {isSidebarOpen && "Map Explorer"}
+            </button>
+            <button 
+              className={`flex items-center gap-3 py-3 rounded-xl border text-sm font-medium transition-all text-left whitespace-nowrap overflow-hidden ${isSidebarOpen ? 'px-4' : 'px-3 justify-center'} ${activeTab === "citizen" ? "bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border-indigo-500/40 text-white shadow-[0_4px_20px_rgba(99,102,241,0.2)]" : "bg-transparent border-transparent text-slate-400 hover:bg-white/10 hover:text-slate-200"}`} 
+              onClick={() => setActiveTab("citizen")}
+              title="Citizen Grievances"
+            >
+              <span className="text-lg shrink-0">📢</span>
+              {isSidebarOpen && "Citizen Grievances"}
+            </button>
+          </nav>
+
+          {/* MAP MODES IN SIDEBAR */}
+          {activeTab === "map" && isSidebarOpen && (
+            <div className="mt-8 px-4 flex flex-col gap-4 animate-in fade-in slide-in-from-left-4 duration-500 mb-6 overflow-y-auto custom-scrollbar">
+              <div className="bg-white/5 rounded-2xl border border-white/10 p-5 shadow-inner backdrop-blur-md">
+                <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <Layers size={14} className="text-indigo-400" /> Map Visual Modes
+                </h4>
+                <div className="flex flex-col gap-2">
+                  <button className={`w-full text-left px-3 py-2 text-sm rounded-lg border transition-all ${activeMode === "explore" ? "bg-indigo-500/30 border-indigo-500/50 text-white" : "bg-black/20 border-transparent text-slate-400 hover:bg-white/10 hover:text-slate-200"}`} onClick={() => setActiveMode("explore")}>
+                    <span className="mr-2">🛣️</span> Explore & Rate
+                  </button>
+                  <button className={`w-full text-left px-3 py-2 text-sm rounded-lg border transition-all ${activeMode === "aqi" ? "bg-indigo-500/30 border-indigo-500/50 text-white" : "bg-black/20 border-transparent text-slate-400 hover:bg-white/10 hover:text-slate-200"}`} onClick={() => setActiveMode("aqi")}>
+                    <span className="mr-2">📊</span> Civic AQI Layers
+                  </button>
+                  <button className={`w-full text-left px-3 py-2 text-sm rounded-lg border transition-all ${activeMode === "heatmap" ? "bg-indigo-500/30 border-indigo-500/50 text-white" : "bg-black/20 border-transparent text-slate-400 hover:bg-white/10 hover:text-slate-200"}`} onClick={() => setActiveMode("heatmap")}>
+                    <span className="mr-2">🔥</span> Complaint Heatmap
+                  </button>
+                </div>
+                
+                <div className="mt-5 pt-4 border-t border-white/10">
+                  <span className="text-xs text-slate-400 font-medium block mb-3">Map Theme:</span>
+                  <div className="flex gap-2">
+                    <button className={`flex-1 py-2 text-xs rounded-lg border transition-all ${mapTheme === "dark" ? "bg-indigo-500/30 border-indigo-500/50 text-white shadow-lg shadow-indigo-500/20" : "bg-black/20 border-white/5 text-slate-400 hover:bg-white/10"}`} onClick={() => setMapTheme("dark")}>🌑 Dark</button>
+                    <button className={`flex-1 py-2 text-xs rounded-lg border transition-all ${mapTheme === "street" ? "bg-indigo-500/30 border-indigo-500/50 text-white shadow-lg shadow-indigo-500/20" : "bg-black/20 border-white/5 text-slate-400 hover:bg-white/10"}`} onClick={() => setMapTheme("street")}>🗺️ Street</button>
+                    <button className={`flex-1 py-2 text-xs rounded-lg border transition-all ${mapTheme === "satellite" ? "bg-indigo-500/30 border-indigo-500/50 text-white shadow-lg shadow-indigo-500/20" : "bg-black/20 border-white/5 text-slate-400 hover:bg-white/10"}`} onClick={() => setMapTheme("satellite")}>🛰️ Satellite</button>
+                  </div>
+                </div>
+
+                <div className="mt-5 pt-4 border-t border-white/10">
+                  <span className="text-xs text-slate-400 font-medium block mb-3">Focus City:</span>
+                  <div className="flex gap-2">
+                    <button className="flex-1 py-2 text-xs rounded-lg bg-black/20 border border-white/5 text-slate-300 hover:bg-white/10 hover:text-white transition-all shadow-sm" onClick={() => { if (mapInstance.current) { mapInstance.current.flyTo([26.4499, 80.3319], 13, { duration: 1.2 }); } }} title="Fly to Kanpur Wards">🏭 Kanpur</button>
+                    <button className="flex-1 py-2 text-xs rounded-lg bg-black/20 border border-white/5 text-slate-300 hover:bg-white/10 hover:text-white transition-all shadow-sm" onClick={() => { if (mapInstance.current) { mapInstance.current.flyTo([26.8467, 80.9462], 13, { duration: 1.2 }); } }} title="Fly to Lucknow Wards">🏛️ Lucknow</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </aside>
+
+        {/* MAIN CONTENT WRAPPER */}
+        <div className="flex-1 flex flex-col relative overflow-hidden min-w-0">
+          {/* TOP NAVBAR */}
+          <header className="h-[72px] flex items-center justify-between px-8 bg-slate-950/60 backdrop-blur-2xl border-b border-slate-800 z-[900] shrink-0">
+            <div className="relative w-96">
+              <input
+                id="search-input"
+                type="text"
+                placeholder="Search road, park, home, shop, landmark..."
+                value={searchQuery}
+                onChange={handleSearch}
+                autoComplete="off"
+                className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-full px-4 py-2 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all placeholder:text-slate-500"
+              />
+              {searchResults.length > 0 && (
+                <ul className="absolute top-full mt-2 left-0 right-0 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden z-50">
+                  {searchResults.map((f, i) => (
+                    <li key={i} onClick={() => selectSearchResult(f)} className="px-4 py-3 hover:bg-slate-700 cursor-pointer border-b border-slate-700/50 last:border-0 transition-colors">
+                      <strong className="block text-sm text-slate-100">{f.properties.name}</strong>
+                      <small className="text-xs text-slate-400">{f.properties.type} - {f.properties.address}</small>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="flex items-center gap-4">
+              {citizenUser ? (
+                <div className="relative group">
+                  <button className="flex items-center gap-2 bg-slate-800/80 border border-slate-700 rounded-full px-4 py-1.5 hover:bg-slate-700 transition-colors">
+                    <span className="text-cyan-400 font-semibold text-sm">👤 {citizenUser.name}</span>
+                    <span className="text-emerald-400 text-xs font-mono">⭐ {userTrustScore}</span>
+                    <span className="text-[10px] text-slate-400 opacity-60 ml-1">▼</span>
+                  </button>
+                  <div className="absolute right-0 top-full mt-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible translate-y-2 group-hover:translate-y-0 transition-all duration-200 z-[2000] overflow-hidden">
+                    <div className="px-5 py-3 border-b border-slate-800">
+                      <div className="text-xs text-slate-400">Signed in as</div>
+                      <div className="text-sm font-semibold text-slate-100 truncate">{citizenUser.email || citizenEmail}</div>
+                    </div>
+                    <div className="py-1">
+                      <button className="w-full text-left px-5 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">My Profile</button>
+                      <button className="w-full text-left px-5 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">My Reports</button>
+                      <button className="w-full text-left px-5 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Settings</button>
+                    </div>
+                    <div className="h-px bg-slate-800 my-1"></div>
+                    <div className="py-1">
+                      <button className="w-full text-left px-5 py-2 text-sm text-rose-400 hover:bg-rose-500/10 transition-colors" onClick={handleCitizenLogout}>Sign Out</button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <button 
+                  onClick={() => setShowCitizenModal(true)} 
+                  className="bg-cyan-500/15 border border-cyan-500/40 text-cyan-400 text-sm font-semibold px-5 py-2 rounded-full hover:bg-cyan-500/25 transition-all"
+                >
+                  👤 Citizen Sign In
+                </button>
+              )}
+            </div>
+          </header>
+
+          <main className={`flex-1 relative overflow-hidden w-full h-full p-0`}>
+        <section className={`w-full h-full relative ${activeTab === 'map' ? 'block' : 'hidden'}`}>
+          {/* Map controls moved to sidebar */}
 
           {/* Live Location Preview HUD */}
           <div className="location-preview-hud">
@@ -1493,7 +1503,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          <div ref={mapRef} id="map"></div>
+          <div ref={mapRef} id="map" className="absolute inset-0 z-0"></div>
 
           <div className="map-perf-badge" title="Hardware accelerated canvas & progressive background streaming">
             <span className={`sync-dot ${bgSyncStatus}`}></span>
@@ -1938,7 +1948,9 @@ export default function Dashboard() {
             </div>
           )}
         </aside>
-      </main>
+          </main>
+        </div> {/* END app-main */}
+      </div> {/* END app-container */}
 
       {/* Citizen Authentication Modal */}
       {showCitizenModal && (
