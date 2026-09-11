@@ -859,6 +859,27 @@ export default function Dashboard() {
 
     userLocationMarkerRef.current = L.marker([lat, lng], { icon }).addTo(map);
   };
+  const handleClosePlace = () => {
+    setSelectedPlace(null);
+    setSelectedLatlng(null);
+    if (selectedLayerRef.current) {
+      if (typeof selectedLayerRef.current.setStyle === "function") {
+        selectedLayerRef.current.setStyle(getPlaceStyle(selectedLayerRef.current.feature, "base"));
+      }
+      selectedLayerRef.current = null;
+    }
+    if (selectedAqiLayerRef.current) {
+      if (typeof selectedAqiLayerRef.current.setStyle === "function") {
+        selectedAqiLayerRef.current.setStyle({ color: "#ffffff", weight: 1.5 });
+      }
+      selectedAqiLayerRef.current = null;
+    }
+    selectedAreaIdRef.current = null;
+    if (selectionMarkerRef.current && mapInstance.current) {
+      mapInstance.current.removeLayer(selectionMarkerRef.current);
+      selectionMarkerRef.current = null;
+    }
+  };
 
   const handleLocateMe = () => {
     if (typeof window === "undefined" || !navigator.geolocation) {
@@ -1512,29 +1533,37 @@ export default function Dashboard() {
         <aside className="sheet">
           {activeTab === "map" && (
             <div id="view-map" className="panel-view active">
-              <div className="card place-card" id="place-summary-card">
-                <p id="place-type" className="place-type">
-                  {selectedPlace ? `${selectedPlace.place.properties.type} ${selectedPlace.is_virtual ? "(pin drop)" : ""}` : "Select a place"}
-                </p>
-                <h2 id="place-name">{selectedPlace ? selectedPlace.place.properties.name : "No Location Selected"}</h2>
-                <p id="place-address" className="place-address">
-                  {selectedPlace ? (selectedPlace.place.properties.address || "No address metadata") : "Click on any road, park, landmark, or pin a custom point on the map to rate quality or submit complaints."}
-                </p>
-
-                {selectedPlace && (
-                  <>
-                    <div className="metric-grid">
-                      <div><label>Quality Rating</label><strong>{selectedPlace.metrics.avg_rating ? `${selectedPlace.metrics.avg_rating}/5` : "No ratings"}</strong></div>
-                      <div><label>Reviews</label><strong>{selectedPlace.metrics.review_count}</strong></div>
-                      <div><label>Complaints</label><strong>{selectedPlace.metrics.complaint_count}</strong></div>
-                      <div><label>Pending</label><strong>{selectedPlace.metrics.pending_complaints}</strong></div>
-                    </div>
-                    <p id="place-jurisdiction" className="place-jurisdiction">
-                      Jurisdiction: {selectedPlace.area ? `${selectedPlace.area.name}, ${selectedPlace.area.city} | Auth: ${selectedPlace.area.authority}` : "Outside mapped region"}
+              {selectedPlace && (
+                <div className="card place-card" id="place-summary-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <p id="place-type" className="place-type">
+                      {`${selectedPlace.place.properties.type} ${selectedPlace.is_virtual ? "(pin drop)" : ""}`}
                     </p>
-                  </>
-                )}
-              </div>
+                    <button 
+                      onClick={handleClosePlace}
+                      className="close-place-btn"
+                      style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px', fontSize: '1.2rem', lineHeight: 1 }}
+                      title="Close"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <h2 id="place-name">{selectedPlace.place.properties.name}</h2>
+                  <p id="place-address" className="place-address">
+                    {selectedPlace.place.properties.address || "No address metadata"}
+                  </p>
+
+                  <div className="metric-grid">
+                    <div><label>Quality Rating</label><strong>{selectedPlace.metrics.avg_rating ? `${selectedPlace.metrics.avg_rating}/5` : "No ratings"}</strong></div>
+                    <div><label>Reviews</label><strong>{selectedPlace.metrics.review_count}</strong></div>
+                    <div><label>Complaints</label><strong>{selectedPlace.metrics.complaint_count}</strong></div>
+                    <div><label>Pending</label><strong>{selectedPlace.metrics.pending_complaints}</strong></div>
+                  </div>
+                  <p id="place-jurisdiction" className="place-jurisdiction">
+                    Jurisdiction: {selectedPlace.area ? `${selectedPlace.area.name}, ${selectedPlace.area.city} | Auth: ${selectedPlace.area.authority}` : "Outside mapped region"}
+                  </p>
+                </div>
+              )}
 
               {selectedPlace && (
                 <>
