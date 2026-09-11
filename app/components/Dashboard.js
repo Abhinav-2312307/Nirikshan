@@ -1321,7 +1321,7 @@ export default function Dashboard() {
       <div className="flex h-screen w-screen overflow-hidden bg-slate-950 text-slate-100">
         {/* SIDEBAR */}
         <aside 
-          className={`${isSidebarOpen ? 'w-[320px]' : 'w-[80px]'} transition-all duration-300 ease-in-out bg-white/5 backdrop-blur-3xl border-r border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] flex flex-col z-[1000] shrink-0 relative`}
+          className={`${isSidebarOpen ? 'w-[320px]' : 'w-[80px]'} transition-all duration-300 ease-in-out flex flex-col z-[1000] shrink-0 relative bg-white/5 backdrop-blur-[20px] rounded-[20px] border border-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] m-4 h-[calc(100vh-32px)]`}
         >
           {/* Toggle Button */}
           <button 
