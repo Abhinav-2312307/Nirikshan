@@ -1202,7 +1202,14 @@ export default function OfficerDashboardView() {
                               </div>
                             </td>
                             <td className="py-2 px-2.5 sm:px-3 min-w-[130px] max-w-[220px]">
-                              <span className="font-semibold text-slate-100 block truncate">{c.place_name || "Location"}</span>
+                              <span className="font-semibold text-slate-100 block truncate" title={c.street ? `${c.street}, ${c.place_name}` : c.place_name}>
+                                {c.street ? `${c.street}, ${c.place_name || "Location"}` : c.place_name || "Location"}
+                              </span>
+                              {c.address && (
+                                <span className="text-[10px] font-mono text-slate-500 block truncate mt-0.5" title={c.address}>
+                                  {c.address}
+                                </span>
+                              )}
                               <span className="text-[11px] text-slate-400 block truncate mt-0.5">{c.description}</span>
                             </td>
                             <td className="py-2 px-2.5 sm:px-3 whitespace-nowrap w-24 sm:w-28">
