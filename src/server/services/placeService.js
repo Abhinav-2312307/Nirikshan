@@ -405,6 +405,8 @@ export async function addComplaint(placeFeature, payload) {
     issue_type: issueType,
     severity: clamp(Number(payload.severity || 1), 1, 3),
     description: String(payload.description || "").trim(),
+    street: String(payload.street || "").trim(),
+    image_url: payload.image_url || null,
     latitude: Number(payload.latitude),
     longitude: Number(payload.longitude),
     location: {

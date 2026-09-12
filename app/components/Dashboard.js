@@ -1154,12 +1154,14 @@ export default function Dashboard() {
           place_name: place.name,
           place_type: place.type,
           address: place.address,
+          street: formData.get("street") ? String(formData.get("street")).trim() : "",
           issue_type: formData.get("issue_type"),
           severity: Number(formData.get("severity")),
           description: String(formData.get("description") || "").trim(),
           latitude: selectedLatlng.lat,
           longitude: selectedLatlng.lng,
-          user_trust_score: userTrustScore
+          user_trust_score: userTrustScore,
+          image: uploadedImage
         })
       });
 
@@ -1748,6 +1750,8 @@ export default function Dashboard() {
                               <option value="3">High - Safety concern</option>
                               <option value="5">Critical - Severe hazard</option>
                             </select>
+                            
+                            <input type="text" name="street" placeholder="Exact street / Landmark..." className="w-full bg-slate-950/50 border border-slate-700 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-rose-500" />
                             
                             <textarea name="description" rows="2" maxLength="300" placeholder="Describe the problem..." required className="w-full bg-slate-950/50 border border-slate-700 rounded-lg p-2.5 text-xs text-white resize-none focus:outline-none focus:border-rose-500"></textarea>
                             
