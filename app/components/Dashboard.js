@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import L from "leaflet";
-import { ChevronLeft, ChevronRight, Map, AlertTriangle, Layers, Settings, LogOut, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Map, AlertTriangle, Layers, Settings, LogOut, Search, Loader2, CheckCircle2, XCircle } from "lucide-react";
 
 // Mapping icons for different categories
 const ISSUE_ICONS = {
@@ -59,6 +59,13 @@ export default function Dashboard() {
   const [mapTheme, setMapTheme] = useState("dark"); // "dark" | "street"
   const [isLocating, setIsLocating] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
+
+  const showToast = (message, type = "success") => {
+    setToastMessage({ message, type });
+    setTimeout(() => setToastMessage(null), 4000);
+  };
 
   useEffect(() => {
     const saved = localStorage.getItem("nirikshan_citizen_user");
@@ -984,7 +991,7 @@ export default function Dashboard() {
         const isEscalatedStr = c.escalated ? ` | <span style="color: #f43f5e; font-weight:700;">ESCALATED (No update > 30d)</span>` : "";
         const isDisputedStr = c.verification_status === "Disputed" ? ` | <span style="color: #f43f5e; font-weight:700;">DISPUTED RESOLUTION</span>` : "";
         let duplicateAlert = "";
-        if (c.is_duplicate) {
+        if (c.duplicate_of) {
           duplicateAlert = `<br><span style="color: #fbbf24; font-size: 0.78rem; font-weight:600;">⚠️ Linked as duplicate of complaint #${c.duplicate_of.slice(0, 8)}</span>`;
         }
 
@@ -1146,6 +1153,7 @@ export default function Dashboard() {
 
     const place = selectedPlace.place.properties;
     const formData = new FormData(e.target);
+    setIsSubmitting(true);
 
     try {
       const response = await api(`/api/places/${encodeURIComponent(place.place_id)}/complaints`, {
@@ -1154,12 +1162,14 @@ export default function Dashboard() {
           place_name: place.name,
           place_type: place.type,
           address: place.address,
+          street: formData.get("street") ? String(formData.get("street")).trim() : "",
           issue_type: formData.get("issue_type"),
           severity: Number(formData.get("severity")),
           description: String(formData.get("description") || "").trim(),
           latitude: selectedLatlng.lat,
           longitude: selectedLatlng.lng,
-          user_trust_score: userTrustScore
+          user_trust_score: userTrustScore,
+          image: uploadedImage
         })
       });
 
@@ -1167,11 +1177,11 @@ export default function Dashboard() {
       setUploadedImage(null);
 
       if (response.status === "Moderation") {
-        alert("⚠️ Your complaint was routed to the Human Moderation Queue. Reason: Description flagged by AI NLP checks or trust score remains below threshold.");
+        showToast("⚠️ Your complaint was routed to Human Moderation. Reason: NLP flag or low trust score.", "warning");
       } else if (response.is_duplicate) {
-        alert("⚠️ Similar issue reported recently in this area. AI flagged this complaint as duplicate and linked it to the existing ticket.");
+        showToast("⚠️ Similar issue reported recently. AI flagged this complaint as duplicate.", "warning");
       } else {
-        alert("✅ Complaint filed successfully. Assigned routing transparently logged.");
+        showToast("Complaint filed successfully. Assigned routing transparently logged.", "success");
       }
 
       fetchedAreasCache.current = {};
@@ -1180,7 +1190,9 @@ export default function Dashboard() {
       await refreshComplaints();
       await refreshAqiLayer(null, true);
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1749,6 +1761,8 @@ export default function Dashboard() {
                               <option value="5">Critical - Severe hazard</option>
                             </select>
                             
+                            <input type="text" name="street" placeholder="Exact street / Landmark..." className="w-full bg-slate-950/50 border border-slate-700 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-rose-500" />
+                            
                             <textarea name="description" rows="2" maxLength="300" placeholder="Describe the problem..." required className="w-full bg-slate-950/50 border border-slate-700 rounded-lg p-2.5 text-xs text-white resize-none focus:outline-none focus:border-rose-500"></textarea>
                             
                             {uploadedImage ? (
@@ -1760,7 +1774,13 @@ export default function Dashboard() {
                               <button type="button" onClick={handlePhotoUploadSimulation} className="w-full bg-slate-950/50 hover:bg-slate-800 text-slate-300 border border-slate-600 border-dashed text-xs py-3 rounded-lg transition-colors flex items-center justify-center gap-2">📸 Attach Photo Evidence</button>
                             )}
 
-                            <button type="submit" className="w-full bg-rose-600 hover:bg-rose-500 text-white font-medium text-xs py-2.5 rounded-lg transition-colors shadow-lg shadow-rose-900/20">Submit Complaint</button>
+                            <button type="submit" disabled={isSubmitting} className="w-full bg-rose-600 hover:bg-rose-500 disabled:opacity-50 disabled:hover:bg-rose-600 text-white font-medium text-xs py-2.5 rounded-lg transition-colors shadow-lg shadow-rose-900/20 flex justify-center items-center gap-2">
+                              {isSubmitting ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 animate-spin" /> Uploading & Submitting...
+                                </>
+                              ) : "Submit Complaint"}
+                            </button>
                          </form>
                        </div>
                     </div>
@@ -1947,6 +1967,31 @@ export default function Dashboard() {
                 Apple 
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Global Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-6 right-6 z-[3000] animate-in slide-in-from-right fade-in duration-300">
+          <div className={`flex items-start gap-3 px-4 py-3 rounded-xl shadow-2xl border backdrop-blur-md ${
+            toastMessage.type === 'success' ? 'bg-emerald-950/80 border-emerald-500/50' : 
+            toastMessage.type === 'error' ? 'bg-rose-950/80 border-rose-500/50' : 
+            'bg-amber-950/80 border-amber-500/50'
+          }`}>
+            {toastMessage.type === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />}
+            {toastMessage.type === 'error' && <XCircle className="w-5 h-5 text-rose-400 shrink-0" />}
+            {toastMessage.type === 'warning' && <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />}
+            <p className={`text-sm font-medium ${
+              toastMessage.type === 'success' ? 'text-emerald-100' :
+              toastMessage.type === 'error' ? 'text-rose-100' :
+              'text-amber-100'
+            }`}>
+              {toastMessage.message}
+            </p>
+            <button onClick={() => setToastMessage(null)} className="opacity-50 hover:opacity-100 transition-opacity">
+              <XCircle className="w-4 h-4 text-white" />
+            </button>
           </div>
         </div>
       )}

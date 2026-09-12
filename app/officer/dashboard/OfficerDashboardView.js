@@ -62,6 +62,12 @@ export default function OfficerDashboardView() {
   const mapInstanceRef = useRef(null);
   const markersGroupRef = useRef(null);
   const boundaryLayerRef = useRef(null);
+  const referenceLayerRef = useRef(null);
+  const aqiLayerRef = useRef(null);
+  const currentAqiLevelRef = useRef(null);
+  const fetchedAreasCache = useRef({});
+  const zoomDebounceRef = useRef(null);
+  const [hoveredArea, setHoveredArea] = useState(null);
   const [mapTheme, setMapTheme] = useState("dark");
 
   // Modals state
@@ -252,6 +258,15 @@ export default function OfficerDashboardView() {
 
       mapInstanceRef.current = map;
       mapInstanceRef.current.tileLayer = tileLayer;
+      
+      // Initialize reference layer for labels
+      const refLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}", {
+        pane: 'markerPane'
+      });
+      referenceLayerRef.current = refLayer;
+      if (mapTheme === "dark") {
+        refLayer.addTo(map);
+      }
 
       const markersGroup = L.layerGroup().addTo(map);
       markersGroupRef.current = markersGroup;
@@ -271,6 +286,12 @@ export default function OfficerDashboardView() {
       dark: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
     };
     mapInstanceRef.current.tileLayer.setUrl(urls[mapTheme] || urls.dark);
+    
+    if (mapTheme === "dark" && referenceLayerRef.current && !mapInstanceRef.current.hasLayer(referenceLayerRef.current)) {
+      referenceLayerRef.current.addTo(mapInstanceRef.current);
+    } else if (mapTheme !== "dark" && referenceLayerRef.current && mapInstanceRef.current.hasLayer(referenceLayerRef.current)) {
+      mapInstanceRef.current.removeLayer(referenceLayerRef.current);
+    }
   }, [mapTheme]);
 
   // Render complaint markers on map
@@ -628,6 +649,133 @@ export default function OfficerDashboardView() {
     return true;
   });
 
+  const scoreToColor = (score) => {
+    if (score >= 90) return "#10b981"; // Emerald
+    if (score >= 70) return "#84cc16"; // Lime
+    if (score >= 50) return "#eab308"; // Yellow
+    if (score >= 30) return "#f97316"; // Orange
+    return "#ef4444"; // Red
+  };
+
+  const refreshAqiLayer = useCallback(async (level = null, force = false) => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (!level) {
+      const z = map.getZoom();
+      if (z < 6) level = "india-states";
+      else if (z < 9) level = "up-districts";
+      else if (z < 12) level = "kanpur-subdistricts";
+      else if (z < 14) level = "macro";
+      else if (z < 16) level = "micro";
+      else level = "submicro";
+    }
+
+    if (!force && currentAqiLevelRef.current === level && aqiLayerRef.current && map.hasLayer(aqiLayerRef.current)) {
+      return;
+    }
+    currentAqiLevelRef.current = level;
+
+    let data;
+    if (!force && fetchedAreasCache.current[level]) {
+      data = await fetchedAreasCache.current[level];
+    } else {
+      const fetchPromise = fetch(`/api/areas?level=${level}`).then(r => r.json());
+      fetchedAreasCache.current[level] = fetchPromise;
+      data = await fetchPromise;
+      fetchedAreasCache.current[level] = data;
+    }
+
+    const oldLayer = aqiLayerRef.current;
+    if (oldLayer && map.hasLayer(oldLayer)) {
+      map.removeLayer(oldLayer);
+    }
+
+    const layer = L.geoJSON(data, {
+      style: (feature) => {
+        return {
+          fillColor: scoreToColor(feature.properties.area_score),
+          color: "#ffffff",
+          weight: 1.5,
+          fillOpacity: 0.45,
+          className: "aqi-region"
+        };
+      },
+      onEachFeature: (feature, childLayer) => {
+        const areaName = feature.properties.name || "Administrative Area";
+        childLayer.bindTooltip(`
+          <div class="area-tooltip-content" style="font-family: inherit; font-size: 12px; font-weight: 500; color: #f8fafc;">
+            <div style="font-weight: bold; margin-bottom: 2px;">${areaName}</div>
+            <div style="font-size: 11px; padding: 2px 6px; border-radius: 4px; background:${scoreToColor(feature.properties.area_score)}44; color:${scoreToColor(feature.properties.area_score)}; border: 1px solid ${scoreToColor(feature.properties.area_score)}; display: inline-block;">
+              AQI Score: ${feature.properties.area_score}
+            </div>
+          </div>
+        `, { sticky: true });
+
+        childLayer.on("mouseover", (e) => {
+          setHoveredArea({
+            name: areaName,
+            level: level,
+            score: feature.properties.area_score,
+            status: feature.properties.area_status || "Standard",
+            authority: feature.properties.authority,
+            city: feature.properties.city
+          });
+          if (typeof childLayer.setStyle === "function") {
+            childLayer.setStyle({ color: "#c084fc", weight: 2.5 });
+          }
+        });
+
+        childLayer.on("mouseout", (e) => {
+          setHoveredArea(null);
+          if (typeof childLayer.setStyle === "function") {
+            childLayer.setStyle({ color: "#ffffff", weight: 1.5 });
+          }
+        });
+      }
+    });
+
+    aqiLayerRef.current = layer;
+    if (activeSection === "aqi") {
+      layer.addTo(map);
+    }
+  }, [activeSection]);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    const handleZoomEnd = () => {
+      if (activeSection !== "aqi") return;
+      if (zoomDebounceRef.current) clearTimeout(zoomDebounceRef.current);
+      zoomDebounceRef.current = setTimeout(async () => {
+        await refreshAqiLayer();
+      }, 150);
+    };
+
+    map.on('zoomend', handleZoomEnd);
+    return () => map.off('zoomend', handleZoomEnd);
+  }, [activeSection, refreshAqiLayer]);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (activeSection === "aqi") {
+      refreshAqiLayer(null, true);
+      if (markersGroupRef.current) map.removeLayer(markersGroupRef.current);
+    } else {
+      if (aqiLayerRef.current && map.hasLayer(aqiLayerRef.current)) {
+        map.removeLayer(aqiLayerRef.current);
+      }
+      if (activeSection === "map") {
+        if (markersGroupRef.current && !map.hasLayer(markersGroupRef.current)) {
+          markersGroupRef.current.addTo(map);
+        }
+      }
+    }
+  }, [activeSection, refreshAqiLayer]);
+
   if (!officer) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-slate-950 text-slate-100 font-sans">
@@ -747,6 +895,7 @@ export default function OfficerDashboardView() {
           <nav className="p-3 space-y-1.5">
             {[
               { id: "map", label: "Command Map", icon: "🗺️", count: null },
+              { id: "aqi", label: "AQI Area Score", icon: "🍃", count: null },
               { id: "complaints", label: "Area Complaints", icon: "📋", count: complaints.length },
               { id: "funds", label: "Fund Requisitions", icon: "💰", count: funds.length },
               { id: "memos", label: "Official Mail & Memos", icon: "✉️", count: memos.length },
@@ -810,7 +959,7 @@ export default function OfficerDashboardView() {
           {/* ========================================================================= */}
           {/* VIEW 1: COMMAND MAP */}
           {/* ========================================================================= */}
-          <div className={`h-full w-full relative ${activeSection === "map" ? "flex" : "hidden"}`}>
+          <div className={`h-full w-full relative ${activeSection === "map" || activeSection === "aqi" ? "flex" : "hidden"}`}>
             {/* Map Container */}
             <div ref={mapContainerRef} className="h-full w-full z-0"></div>
 
@@ -860,6 +1009,25 @@ export default function OfficerDashboardView() {
                 <span className="font-bold text-slate-200 font-mono">{complaints.length}</span>
               </div>
             </div>
+
+            {/* Hovered Area HUD for AQI Mode */}
+            {activeSection === "aqi" && hoveredArea && (
+              <div className="absolute top-4 right-4 z-10 w-64 bg-slate-900/95 border border-slate-800 backdrop-blur-xl rounded-xl p-3 shadow-2xl animate-in slide-in-from-right duration-200">
+                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">{hoveredArea.level} LEVEL</div>
+                <div className="font-bold text-white text-sm mb-2">{hoveredArea.name}</div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="text-2xl font-bold font-mono" style={{ color: scoreToColor(hoveredArea.score) }}>
+                    {hoveredArea.score}
+                  </div>
+                  <div className="text-xs px-2 py-1 rounded bg-slate-800 border" style={{ borderColor: scoreToColor(hoveredArea.score), color: scoreToColor(hoveredArea.score) }}>
+                    {hoveredArea.status}
+                  </div>
+                </div>
+                {hoveredArea.authority && (
+                  <div className="text-[10px] text-slate-400">Auth: <span className="text-slate-300">{hoveredArea.authority}</span></div>
+                )}
+              </div>
+            )}
 
             {/* Quick Action Drawer when complaint is selected on map */}
             {selectedComplaint && (
@@ -1034,7 +1202,14 @@ export default function OfficerDashboardView() {
                               </div>
                             </td>
                             <td className="py-2 px-2.5 sm:px-3 min-w-[130px] max-w-[220px]">
-                              <span className="font-semibold text-slate-100 block truncate">{c.place_name || "Location"}</span>
+                              <span className="font-semibold text-slate-100 block truncate" title={c.street ? `${c.street}, ${c.place_name}` : c.place_name}>
+                                {c.street ? `${c.street}, ${c.place_name || "Location"}` : c.place_name || "Location"}
+                              </span>
+                              {c.address && (
+                                <span className="text-[10px] font-mono text-slate-500 block truncate mt-0.5" title={c.address}>
+                                  {c.address}
+                                </span>
+                              )}
                               <span className="text-[11px] text-slate-400 block truncate mt-0.5">{c.description}</span>
                             </td>
                             <td className="py-2 px-2.5 sm:px-3 whitespace-nowrap w-24 sm:w-28">

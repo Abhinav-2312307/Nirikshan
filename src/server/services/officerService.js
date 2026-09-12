@@ -287,9 +287,34 @@ export async function listFundRequests(officer) {
     funds = getFundRequests();
   }
 
-  // Scope funds if needed, or allow senior officers to see all
-  if (officer.level === "ward") {
-    funds = funds.filter(f => f.officer_id === officer.user_id || f.ward_code === officer.jurisdiction?.code);
+  // Scope funds by jurisdiction
+  if (officer.level !== "national") {
+    funds = funds.filter(f => {
+      // Re-use logic similar to matchesJurisdiction
+      const jur = officer.jurisdiction || {};
+      const jurCode = (jur.code || "").toUpperCase();
+      const jurName = (jur.name || "").toLowerCase();
+      const fCode = (f.ward_code || "").toUpperCase();
+      const fName = (f.ward_name || "").toLowerCase();
+      
+      if (f.officer_id === officer.user_id) return true;
+      
+      if (officer.level === "state") return true;
+      if (officer.level === "district") {
+        if (jurCode === "LUCKNOW") return fCode.includes("LKO") || fCode.includes("WARD_12") || fName.includes("lucknow") || fName.includes("hazratganj");
+        if (jurCode === "KANPUR") return fCode.includes("KNP") || fCode.includes("WARD_88") || fCode.includes("WARD_36") || fCode.includes("WARD_58") || fName.includes("kanpur") || fName.includes("naubasta");
+        return true;
+      }
+      if (officer.level === "zone") {
+        if (jurCode.includes("LKO")) return fCode.includes("WARD_12") || fCode.includes("LKO");
+        if (jurCode.includes("KNP")) return fCode.includes("WARD_88") || fCode.includes("WARD_36") || fCode.includes("WARD_58") || fCode.includes("KNP");
+        return true;
+      }
+      if (officer.level === "ward") {
+        return fCode.includes(jurCode) || (fCode && jurName && fCode.toLowerCase().includes(jurName));
+      }
+      return true;
+    });
   }
 
   return funds.map(f => ({ ...f, _id: undefined }));
@@ -398,6 +423,35 @@ export async function listOfficialMemos(officer) {
     memos = getOfficialMemos();
   }
 
+  if (officer.level !== "national") {
+    memos = memos.filter(m => {
+      if (m.sender_id === officer.user_id) return true;
+      
+      const jur = officer.jurisdiction || {};
+      const jurCode = (jur.code || "").toUpperCase();
+      const recId = (m.recipient_authority_id || "").toUpperCase();
+      const recName = (m.recipient_authority_name || "").toLowerCase();
+      const senderDept = (m.sender_dept || "").toLowerCase();
+      
+      if (officer.level === "state") return true;
+      if (officer.level === "district") {
+        if (jurCode === "LUCKNOW") return recName.includes("lucknow") || recId.includes("LNN") || recId.includes("LDA") || senderDept.includes("lucknow");
+        if (jurCode === "KANPUR") return recName.includes("kanpur") || recId.includes("KNN") || recId.includes("KDA") || senderDept.includes("kanpur");
+        return true;
+      }
+      if (officer.level === "zone") {
+        if (jurCode.includes("LKO")) return recId === "LNN" || recId === "LDA" || senderDept.includes("lucknow");
+        if (jurCode.includes("KNP")) return recId === "KNN" || recId === "KDA" || recId === "JAL" || senderDept.includes("kanpur");
+        return true;
+      }
+      if (officer.level === "ward") {
+        // Ward officers only see memos explicitly involving their department/authority
+        return false;
+      }
+      return true;
+    });
+  }
+
   return memos.map(m => ({ ...m, _id: undefined }));
 }
 
@@ -469,10 +523,32 @@ export async function getSubordinatesDirectory(officer) {
   };
 
   const currentWeight = hierarchyWeight[officer.level] ?? 4;
-  const subordinates = allOfficers.filter(o => {
+  let subordinates = allOfficers.filter(o => {
     const targetWeight = hierarchyWeight[o.level] ?? 4;
     return targetWeight > currentWeight;
   });
+
+  if (officer.level !== "national") {
+    subordinates = subordinates.filter(sub => {
+      const jur = officer.jurisdiction || {};
+      const jurCode = (jur.code || "").toUpperCase();
+      const subCode = (sub.jurisdiction?.code || "").toUpperCase();
+      const subCity = (sub.jurisdiction?.city || "").toLowerCase();
+      
+      if (officer.level === "state") return true;
+      if (officer.level === "district") {
+        if (jurCode === "LUCKNOW") return subCity.includes("lucknow") || subCode.includes("LKO") || subCode.includes("WARD_12");
+        if (jurCode === "KANPUR") return subCity.includes("kanpur") || subCode.includes("KNP") || subCode.includes("WARD_88") || subCode.includes("WARD_36") || subCode.includes("WARD_58");
+        return true;
+      }
+      if (officer.level === "zone") {
+        if (jurCode.includes("LKO")) return subCode.includes("WARD_12") || subCode.includes("LKO");
+        if (jurCode.includes("KNP")) return subCode.includes("WARD_88") || subCode.includes("WARD_36") || subCode.includes("WARD_58") || subCode.includes("KNP");
+        return true;
+      }
+      return false;
+    });
+  }
 
   // Calculate real-time active tasks and workload for each subordinate
   let allTasks = [];
