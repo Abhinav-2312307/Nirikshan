@@ -330,23 +330,33 @@ export default function OfficerDashboardView() {
 
       const marker = L.marker([lat, lng], { icon: customIcon });
 
+      const hasImage = !!c.image_url;
       const popupHtml = `
-        <div style="font-family: inherit; min-width: 220px; color: #f8fafc;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-            <strong style="color: #38bdf8; font-size: 13px;">${iconEmoji} ${c.issue_type}</strong>
-            <span style="font-size: 10px; padding: 2px 6px; border-radius: 9999px; background: ${isResolved ? '#065f46' : '#881337'}; color: #fff;">${c.status}</span>
+        <div style="font-family: inherit; min-width: 240px; color: #f8fafc; padding: 14px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+            <strong style="color: #38bdf8; font-size: 14px; display: flex; align-items: center; gap: 4px;">${iconEmoji} ${c.issue_type}</strong>
+            <span style="font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 9999px; background: ${isResolved ? 'rgba(16, 185, 129, 0.2)' : 'rgba(244, 63, 94, 0.2)'}; color: ${isResolved ? '#34d399' : '#fb7185'}; border: 1px solid ${isResolved ? 'rgba(52, 211, 153, 0.3)' : 'rgba(251, 113, 133, 0.3)'};">${c.status}</span>
           </div>
-          <p style="font-size: 12px; margin: 0 0 4px 0; font-weight: 600;">${c.place_name || "Civic Spot"}</p>
-          <p style="font-size: 11px; color: #94a3b8; margin: 0 0 8px 0;">${c.description}</p>
-          <div style="display: flex; gap: 4px; font-size: 10px; color: #cbd5e1; border-top: 1px solid #334155; padding-top: 6px;">
-            <span>Trust: ${c.user_trust_score || 80}</span>
-            <span>•</span>
-            <span>Open: ${c.days_open || 1}d</span>
+          
+          <p style="font-size: 13px; margin: 0 0 4px 0; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.8);">${c.street ? c.street + ', ' : ''}${c.place_name || "Civic Spot"}</p>
+          <p style="font-size: 11px; color: #cbd5e1; margin: 0 0 12px 0; line-height: 1.4;">${c.description}</p>
+          
+          ${hasImage ? `
+            <div style="margin-bottom: 12px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);">
+              <img src="${c.image_url}" alt="Complaint image" style="width: 100%; height: 130px; object-fit: cover; display: block;" />
+            </div>
+          ` : ''}
+          
+          <div style="display: flex; gap: 8px; font-size: 10px; color: #94a3b8; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
+            <span style="background: rgba(0,0,0,0.3); padding: 3px 8px; border-radius: 4px;">Trust: <strong style="color: #e2e8f0;">${c.user_trust_score || 80}</strong></span>
+            <span style="background: rgba(0,0,0,0.3); padding: 3px 8px; border-radius: 4px;">Open: <strong style="color: #e2e8f0;">${c.days_open || 1}d</strong></span>
           </div>
         </div>
       `;
 
-      marker.bindPopup(popupHtml);
+      marker.bindPopup(popupHtml, {
+        className: 'glass-popup'
+      });
       marker.on("click", () => {
         setSelectedComplaint(c);
       });
