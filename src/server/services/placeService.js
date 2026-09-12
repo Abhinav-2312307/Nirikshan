@@ -206,15 +206,53 @@ export async function resolvePlace(lat, lng) {
   const area = findAreaForPoint(lat, lng);
   const areaId = area?.properties?.area_id || null;
 
+  let name = "Selected Location";
+  let address = "Pinned map location";
+
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, {
+      headers: { "User-Agent": "Nirikshan-App/1.0" },
+      signal: AbortSignal.timeout(3000)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.address) {
+        const parts = [
+          data.address.suburb,
+          data.address.village,
+          data.address.town,
+          data.address.city,
+          data.address.state_district,
+          data.address.state
+        ].filter(Boolean);
+        
+        // Remove duplicate city/district names that often appear adjacent
+        const uniqueParts = [];
+        parts.forEach(p => { if (uniqueParts[uniqueParts.length - 1] !== p) uniqueParts.push(p); });
+
+        if (data.name) {
+            name = data.name;
+        } else if (uniqueParts.length > 0) {
+            name = uniqueParts[0];
+        }
+        address = uniqueParts.join(", ");
+      } else if (data && data.display_name) {
+        address = data.display_name;
+      }
+    }
+  } catch (error) {
+    console.error("Reverse geocoding failed:", error.message);
+  }
+
   return {
     place: {
       type: "Feature",
       properties: {
         place_id: `VIRTUAL_${lat.toFixed(5)}_${lng.toFixed(5)}`,
-        name: "Selected Location",
+        name,
         type: "location",
         area_id: areaId,
-        address: "Pinned map location",
+        address,
         is_virtual: true
       },
       geometry: {
@@ -405,6 +443,8 @@ export async function addComplaint(placeFeature, payload) {
     issue_type: issueType,
     severity: clamp(Number(payload.severity || 1), 1, 3),
     description: String(payload.description || "").trim(),
+    street: String(payload.street || "").trim(),
+    image_url: payload.image_url || null,
     latitude: Number(payload.latitude),
     longitude: Number(payload.longitude),
     location: {
