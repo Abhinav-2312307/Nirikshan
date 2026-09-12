@@ -799,6 +799,36 @@ export default function OfficerDashboardView() {
 
   return (
     <div className="h-screen w-full flex flex-col bg-slate-950 text-slate-100 font-sans overflow-hidden">
+      <style dangerouslySetInnerHTML={{__html: `
+        .glass-popup .leaflet-popup-content-wrapper {
+          background: rgba(15, 23, 42, 0.85) !important;
+          backdrop-filter: blur(16px) saturate(180%) !important;
+          -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+          border: 1px solid rgba(255, 255, 255, 0.12) !important;
+          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5) !important;
+          border-radius: 16px !important;
+          padding: 0 !important;
+        }
+        .glass-popup .leaflet-popup-tip {
+          background: rgba(15, 23, 42, 0.95) !important;
+          border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+          border-left: 1px solid rgba(255, 255, 255, 0.12) !important;
+          backdrop-filter: blur(16px) saturate(180%) !important;
+        }
+        .glass-popup .leaflet-popup-content {
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        .glass-popup .leaflet-popup-close-button {
+          color: #94a3b8 !important;
+          top: 10px !important;
+          right: 10px !important;
+          z-index: 10;
+        }
+        .glass-popup .leaflet-popup-close-button:hover {
+          color: #fff !important;
+        }
+      `}} />
       {/* Toast Notification */}
       {notification && (
         <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl border shadow-2xl backdrop-blur-lg text-xs font-semibold flex items-center gap-2 animate-in fade-in duration-200 ${
