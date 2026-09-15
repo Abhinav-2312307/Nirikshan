@@ -1552,7 +1552,7 @@ export default function Dashboard() {
             <article><strong>{summary.highPriority}</strong><span>High/Critical</span></article>
           </div>
 
-          {activeMode === "aqi" && (
+          {activeMode === "aqi" && !selectedPlace && (
             <div className="legend-card" id="map-legend">
               <h3>Area Quality Index (AQI)</h3>
               <p id="zoom-level-text">Active Level: Boundary Zoom Zoom</p>

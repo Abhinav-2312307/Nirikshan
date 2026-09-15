@@ -704,6 +704,7 @@ textarea {
 }
 
 .nav-user-dropdown-item {
+  display: block;
   width: 100%;
   text-align: left;
   padding: 8px 20px;
