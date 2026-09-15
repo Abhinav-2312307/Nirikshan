@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import L from "leaflet";
-import { ChevronLeft, ChevronRight, Map, AlertTriangle, Layers, Settings, LogOut, Search, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Map, AlertTriangle, Layers, Settings, LogOut, Search, Loader2, CheckCircle2, XCircle, Sun, Moon } from "lucide-react";
 
 // Mapping icons for different categories
 const ISSUE_ICONS = {
@@ -61,11 +61,29 @@ export default function Dashboard() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
+  const [theme, setTheme] = useState("dark"); // "dark" | "light"
 
   const showToast = (message, type = "success") => {
     setToastMessage({ message, type });
     setTimeout(() => setToastMessage(null), 4000);
   };
+
+  // Hydrate theme from localStorage
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("nirikshan_theme");
+    if (savedTheme === "light" || savedTheme === "dark") {
+      setTheme(savedTheme);
+      document.documentElement.setAttribute("data-theme", savedTheme);
+    }
+  }, []);
+
+  // Sync theme to DOM and localStorage
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("nirikshan_theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(prev => prev === "dark" ? "light" : "dark");
 
   useEffect(() => {
     const saved = localStorage.getItem("nirikshan_citizen_user");
@@ -1332,30 +1350,30 @@ export default function Dashboard() {
 
   return (
     <>
-      <div className="flex h-screen w-screen overflow-hidden bg-slate-950 text-slate-100">
+      <div className="flex h-screen w-screen overflow-hidden" style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
         {/* SIDEBAR */}
         <aside 
-          className={`${isSidebarOpen ? 'w-[320px]' : 'w-[80px]'} transition-all duration-300 ease-in-out flex flex-col z-[1000] shrink-0 relative bg-white/5 backdrop-blur-[20px] rounded-[20px] border border-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] m-4 h-[calc(100vh-32px)]`}
+          className={`sidebar ${isSidebarOpen ? 'w-[320px]' : 'w-[80px]'}`}
         >
           {/* Toggle Button */}
           <button 
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="absolute -right-3 top-6 bg-slate-800 border border-slate-700 rounded-full p-1 text-white hover:bg-slate-700 z-50 shadow-lg flex items-center justify-center transition-transform hover:scale-110"
+            className="sidebar-toggle"
           >
             {isSidebarOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
           </button>
 
           <div className={`p-6 transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 overflow-hidden px-0'}`}>
-            <h1 className="text-xl font-bold m-0 text-white flex items-center gap-2 whitespace-nowrap">
-              <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)] shrink-0"></span>
-              {isSidebarOpen && "Nirikshan Ledger"}
+            <h1 className="text-xl font-bold m-0 flex items-center gap-2 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
+              <span className="sidebar-brand-dot"></span>
+              {isSidebarOpen && <span className="sidebar-brand-title">Nirikshan Ledger</span>}
             </h1>
-            {isSidebarOpen && <p className="text-xs text-slate-400 mt-1 ml-4 whitespace-nowrap">Civic Quality Mapping</p>}
+            {isSidebarOpen && <p className="sidebar-brand-subtitle mt-1 ml-4 whitespace-nowrap">Civic Quality Mapping</p>}
           </div>
 
           <nav className={`flex flex-col gap-2 mt-2 ${isSidebarOpen ? 'px-4' : 'px-3'} transition-all`}>
             <button 
-              className={`flex items-center gap-3 py-3 rounded-xl border text-sm font-medium transition-all text-left whitespace-nowrap overflow-hidden ${isSidebarOpen ? 'px-4' : 'px-3 justify-center'} ${activeTab === "map" ? "bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border-indigo-500/40 text-white shadow-[0_4px_20px_rgba(99,102,241,0.2)]" : "bg-transparent border-transparent text-slate-400 hover:bg-white/10 hover:text-slate-200"}`} 
+              className={`sidebar-nav-btn ${activeTab === "map" ? "active" : ""} ${!isSidebarOpen ? 'justify-center px-3' : ''}`}
               onClick={() => setActiveTab("map")}
               title="Map Explorer"
             >
@@ -1363,7 +1381,7 @@ export default function Dashboard() {
               {isSidebarOpen && "Map Explorer"}
             </button>
             <button 
-              className={`flex items-center gap-3 py-3 rounded-xl border text-sm font-medium transition-all text-left whitespace-nowrap overflow-hidden ${isSidebarOpen ? 'px-4' : 'px-3 justify-center'} ${activeTab === "citizen" ? "bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border-indigo-500/40 text-white shadow-[0_4px_20px_rgba(99,102,241,0.2)]" : "bg-transparent border-transparent text-slate-400 hover:bg-white/10 hover:text-slate-200"}`} 
+              className={`sidebar-nav-btn ${activeTab === "citizen" ? "active" : ""} ${!isSidebarOpen ? 'justify-center px-3' : ''}`}
               onClick={() => setActiveTab("citizen")}
               title="Citizen Grievances"
             >
@@ -1374,10 +1392,10 @@ export default function Dashboard() {
 
           {/* MAP MODES IN SIDEBAR */}
           {activeTab === "map" && isSidebarOpen && (
-            <div className="mt-8 px-4 flex flex-col gap-4 animate-in fade-in slide-in-from-left-4 duration-500 mb-6 overflow-y-auto custom-scrollbar">
-              <div className="bg-white/5 rounded-2xl border border-white/10 p-5 shadow-inner backdrop-blur-md">
-                <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2">
-                  <Layers size={14} className="text-indigo-400" /> Map Visual Modes
+            <div className="mt-8 px-4 flex flex-col gap-4 mb-6 overflow-y-auto" style={{ animation: 'fadeInShortcuts 0.4s ease' }}>
+              <div className="sidebar-section">
+                <h4 className="sidebar-section-title">
+                  <Layers size={14} style={{ color: 'var(--accent-1)' }} /> Map Visual Modes
                 </h4>
                 <div className="radio-input">
                   <div className="glass">
@@ -1414,20 +1432,20 @@ export default function Dashboard() {
                   </div>
                 </div>
                 
-                <div className="mt-5 pt-4 border-t border-white/10">
-                  <span className="text-xs text-slate-400 font-medium block mb-3">Map Theme:</span>
+                <div className="sidebar-divider">
+                  <span className="sidebar-label">Map Theme:</span>
                   <div className="flex gap-2">
-                    <button className={`flex-1 py-2 text-xs rounded-lg border transition-all ${mapTheme === "dark" ? "bg-indigo-500/30 border-indigo-500/50 text-white shadow-lg shadow-indigo-500/20" : "bg-black/20 border-white/5 text-slate-400 hover:bg-white/10"}`} onClick={() => setMapTheme("dark")}>🌑 Dark</button>
-                    <button className={`flex-1 py-2 text-xs rounded-lg border transition-all ${mapTheme === "street" ? "bg-indigo-500/30 border-indigo-500/50 text-white shadow-lg shadow-indigo-500/20" : "bg-black/20 border-white/5 text-slate-400 hover:bg-white/10"}`} onClick={() => setMapTheme("street")}>🗺️ Street</button>
-                    <button className={`flex-1 py-2 text-xs rounded-lg border transition-all ${mapTheme === "satellite" ? "bg-indigo-500/30 border-indigo-500/50 text-white shadow-lg shadow-indigo-500/20" : "bg-black/20 border-white/5 text-slate-400 hover:bg-white/10"}`} onClick={() => setMapTheme("satellite")}>🛰️ Satellite</button>
+                    <button className={`sidebar-theme-btn ${mapTheme === "dark" ? "active" : ""}`} onClick={() => setMapTheme("dark")}>🌑 Dark</button>
+                    <button className={`sidebar-theme-btn ${mapTheme === "street" ? "active" : ""}`} onClick={() => setMapTheme("street")}>🗺️ Street</button>
+                    <button className={`sidebar-theme-btn ${mapTheme === "satellite" ? "active" : ""}`} onClick={() => setMapTheme("satellite")}>🛰️ Satellite</button>
                   </div>
                 </div>
 
-                <div className="mt-5 pt-4 border-t border-white/10">
-                  <span className="text-xs text-slate-400 font-medium block mb-3">Focus City:</span>
+                <div className="sidebar-divider">
+                  <span className="sidebar-label">Focus City:</span>
                   <div className="flex gap-2">
-                    <button className="flex-1 py-2 text-xs rounded-lg bg-black/20 border border-white/5 text-slate-300 hover:bg-white/10 hover:text-white transition-all shadow-sm" onClick={() => { if (mapInstance.current) { mapInstance.current.flyTo([26.4499, 80.3319], 13, { duration: 1.2 }); } }} title="Fly to Kanpur Wards">🏭 Kanpur</button>
-                    <button className="flex-1 py-2 text-xs rounded-lg bg-black/20 border border-white/5 text-slate-300 hover:bg-white/10 hover:text-white transition-all shadow-sm" onClick={() => { if (mapInstance.current) { mapInstance.current.flyTo([26.8467, 80.9462], 13, { duration: 1.2 }); } }} title="Fly to Lucknow Wards">🏛️ Lucknow</button>
+                    <button className="sidebar-theme-btn" onClick={() => { if (mapInstance.current) { mapInstance.current.flyTo([26.4499, 80.3319], 13, { duration: 1.2 }); } }} title="Fly to Kanpur Wards">🏭 Kanpur</button>
+                    <button className="sidebar-theme-btn" onClick={() => { if (mapInstance.current) { mapInstance.current.flyTo([26.8467, 80.9462], 13, { duration: 1.2 }); } }} title="Fly to Lucknow Wards">🏛️ Lucknow</button>
                   </div>
                 </div>
               </div>
@@ -1438,7 +1456,7 @@ export default function Dashboard() {
         {/* MAIN CONTENT WRAPPER */}
         <div className="flex-1 flex flex-col relative overflow-hidden min-w-0">
           {/* TOP NAVBAR */}
-          <header className="h-[72px] flex items-center justify-between px-8 bg-slate-950/60 backdrop-blur-2xl border-b border-slate-800 z-[900] shrink-0">
+          <header className="navbar">
             <div className="relative w-96">
               <input
                 id="search-input"
@@ -1447,48 +1465,56 @@ export default function Dashboard() {
                 value={searchQuery}
                 onChange={handleSearch}
                 autoComplete="off"
-                className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-full px-4 py-2 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all placeholder:text-slate-500"
               />
               {searchResults.length > 0 && (
-                <ul className="absolute top-full mt-2 left-0 right-0 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden z-50">
+                <ul className="search-results visible">
                   {searchResults.map((f, i) => (
-                    <li key={i} onClick={() => selectSearchResult(f)} className="px-4 py-3 hover:bg-slate-700 cursor-pointer border-b border-slate-700/50 last:border-0 transition-colors">
-                      <strong className="block text-sm text-slate-100">{f.properties.name}</strong>
-                      <small className="text-xs text-slate-400">{f.properties.type} - {f.properties.address}</small>
+                    <li key={i} onClick={() => selectSearchResult(f)}>
+                      <strong>{f.properties.name}</strong>
+                      <small>{f.properties.type} - {f.properties.address}</small>
                     </li>
                   ))}
                 </ul>
               )}
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              {/* Theme Toggle */}
+              <button 
+                onClick={toggleTheme}
+                className="theme-toggle"
+                title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+              >
+                {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+              </button>
+
               {citizenUser ? (
-                <div className="relative group">
-                  <button className="flex items-center gap-2 bg-slate-800/80 border border-slate-700 rounded-full px-4 py-1.5 hover:bg-slate-700 transition-colors">
-                    <span className="text-cyan-400 font-semibold text-sm">👤 {citizenUser.name}</span>
-                    <span className="text-emerald-400 text-xs font-mono">⭐ {userTrustScore}</span>
-                    <span className="text-[10px] text-slate-400 opacity-60 ml-1">▼</span>
+                <div className="relative nav-user-wrapper">
+                  <button className="nav-user-btn">
+                    <span style={{ color: 'var(--accent-1)', fontWeight: 600, fontSize: '0.88rem' }}>👤 {citizenUser.name}</span>
+                    <span style={{ color: 'var(--green)', fontSize: '0.75rem', fontFamily: 'monospace' }}>⭐ {userTrustScore}</span>
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginLeft: 4 }}>▼</span>
                   </button>
-                  <div className="absolute right-0 top-full mt-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible translate-y-2 group-hover:translate-y-0 transition-all duration-200 z-[2000] overflow-hidden">
-                    <div className="px-5 py-3 border-b border-slate-800">
-                      <div className="text-xs text-slate-400">Signed in as</div>
-                      <div className="text-sm font-semibold text-slate-100 truncate">{citizenUser.email || citizenEmail}</div>
+                  <div className="nav-user-dropdown">
+                    <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border-primary)' }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Signed in as</div>
+                      <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{citizenUser.email || citizenEmail}</div>
                     </div>
-                    <div className="py-1">
-                      <button className="w-full text-left px-5 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">My Profile</button>
-                      <button className="w-full text-left px-5 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">My Reports</button>
-                      <button className="w-full text-left px-5 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">Settings</button>
+                    <div style={{ padding: '4px 0' }}>
+                      <button className="nav-user-dropdown-item">My Profile</button>
+                      <button className="nav-user-dropdown-item">My Reports</button>
+                      <button className="nav-user-dropdown-item">Settings</button>
                     </div>
-                    <div className="h-px bg-slate-800 my-1"></div>
-                    <div className="py-1">
-                      <button className="w-full text-left px-5 py-2 text-sm text-rose-400 hover:bg-rose-500/10 transition-colors" onClick={handleCitizenLogout}>Sign Out</button>
+                    <div style={{ height: 1, background: 'var(--border-primary)', margin: '4px 0' }}></div>
+                    <div style={{ padding: '4px 0' }}>
+                      <button className="nav-user-dropdown-item danger" onClick={handleCitizenLogout}>Sign Out</button>
                     </div>
                   </div>
                 </div>
               ) : (
                 <button 
                   onClick={() => setShowCitizenModal(true)} 
-                  className="bg-cyan-500/15 border border-cyan-500/40 text-cyan-400 text-sm font-semibold px-5 py-2 rounded-full hover:bg-cyan-500/25 transition-all"
+                  className="sign-in-btn"
                 >
                   👤 Citizen Sign In
                 </button>
@@ -1496,9 +1522,8 @@ export default function Dashboard() {
             </div>
           </header>
 
-          <main className={`flex-1 relative overflow-hidden w-full h-full p-0`}>
+          <main className="flex-1 relative overflow-hidden w-full h-full p-0">
         <section className={`w-full h-full relative ${activeTab === 'map' ? 'block' : 'hidden'}`}>
-          {/* Map controls moved to sidebar */}
 
           {/* Live Location Preview HUD */}
           <div className="location-preview-hud">
@@ -1572,7 +1597,7 @@ export default function Dashboard() {
                 <span>⌨️ Keyboard Shortcuts</span>
                 <button 
                   onClick={() => setShowShortcuts(false)}
-                  style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: "16px", padding: 0 }}
+                  style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: "16px", padding: 0 }}
                 >
                   ✕
                 </button>
@@ -1660,68 +1685,70 @@ export default function Dashboard() {
         {/* FLOATING SELECTED AREA POPUP */}
         {selectedPlace && (
           <div className="absolute right-6 top-6 bottom-6 w-[380px] z-[2000] flex flex-col pointer-events-none">
-            <div className="pointer-events-auto bg-slate-950/60 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex-shrink-0 flex flex-col overflow-hidden max-h-full">
+            <div className="pointer-events-auto place-popup">
               
               {/* Header */}
-              <div className="p-5 border-b border-white/10 shrink-0 bg-slate-900/50">
+              <div className="place-popup-header">
                 <div className="flex justify-between items-start">
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider text-cyan-400 font-bold mb-1">
+                    <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--accent-1)', fontWeight: 700, marginBottom: 4 }}>
                       {`${selectedPlace.place.properties.type} ${selectedPlace.is_virtual ? "(pin drop)" : ""}`}
                     </p>
-                    <h2 className="text-xl font-bold text-white leading-tight">{selectedPlace.place.properties.name}</h2>
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3 }}>{selectedPlace.place.properties.name}</h2>
                   </div>
                   <button 
                     onClick={handleClosePlace}
-                    className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 rounded-full p-1.5 transition-colors shrink-0 ml-2"
+                    className="place-popup-close"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                   </button>
                 </div>
-                <p className="text-xs text-slate-300 mt-1">
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: 4 }}>
                   {selectedPlace.place.properties.address || "No address metadata"}
                 </p>
-                <div className="text-[10px] text-slate-400 mt-2 flex gap-1.5 items-center">
+                <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: 8, display: 'flex', gap: 6, alignItems: 'center' }}>
                    <span>🏛️</span>
                    <span>{selectedPlace.area ? `${selectedPlace.area.name}, ${selectedPlace.area.city} | Auth: ${selectedPlace.area.authority}` : "Outside mapped region"}</span>
                 </div>
               </div>
 
               {/* Scrollable Content */}
-              <div className="p-5 overflow-y-auto overflow-x-hidden custom-scrollbar flex-1 flex flex-col gap-6">
+              <div className="place-popup-content">
                 
                 {/* Metrics */}
                 <div className="grid grid-cols-2 gap-2 shrink-0">
-                  <div className="bg-white/5 rounded-xl p-3 border border-white/5">
-                    <span className="block text-[10px] text-slate-400 mb-0.5 uppercase tracking-wider">Quality</span>
-                    <strong className="text-xl text-white font-semibold">{selectedPlace.metrics.avg_rating ? `${selectedPlace.metrics.avg_rating}/5` : "N/A"}</strong>
+                  <div className="place-popup-metric">
+                    <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Quality</span>
+                    <strong style={{ fontSize: '1.25rem', color: 'var(--text-primary)', fontWeight: 600 }}>{selectedPlace.metrics.avg_rating ? `${selectedPlace.metrics.avg_rating}/5` : "N/A"}</strong>
                   </div>
-                  <div className="bg-white/5 rounded-xl p-3 border border-white/5">
-                    <span className="block text-[10px] text-slate-400 mb-0.5 uppercase tracking-wider">Reviews</span>
-                    <strong className="text-xl text-white font-semibold">{selectedPlace.metrics.review_count}</strong>
+                  <div className="place-popup-metric">
+                    <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Reviews</span>
+                    <strong style={{ fontSize: '1.25rem', color: 'var(--text-primary)', fontWeight: 600 }}>{selectedPlace.metrics.review_count}</strong>
                   </div>
-                  <div className="bg-white/5 rounded-xl p-3 border border-white/5">
-                    <span className="block text-[10px] text-slate-400 mb-0.5 uppercase tracking-wider">Complaints</span>
-                    <strong className="text-xl text-rose-400 font-semibold">{selectedPlace.metrics.complaint_count}</strong>
+                  <div className="place-popup-metric">
+                    <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Complaints</span>
+                    <strong style={{ fontSize: '1.25rem', color: 'var(--red)', fontWeight: 600 }}>{selectedPlace.metrics.complaint_count}</strong>
                   </div>
-                  <div className="bg-white/5 rounded-xl p-3 border border-white/5">
-                    <span className="block text-[10px] text-slate-400 mb-0.5 uppercase tracking-wider">Pending</span>
-                    <strong className="text-xl text-amber-400 font-semibold">{selectedPlace.metrics.pending_complaints}</strong>
+                  <div className="place-popup-metric">
+                    <span style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Pending</span>
+                    <strong style={{ fontSize: '1.25rem', color: 'var(--yellow)', fontWeight: 600 }}>{selectedPlace.metrics.pending_complaints}</strong>
                   </div>
                 </div>
               
-                <div className="h-px bg-white/10 shrink-0 w-full"></div>
+                <div style={{ height: 1, background: 'var(--border-primary)', width: '100%', flexShrink: 0 }}></div>
 
                 {selectedPlace.area ? (
                   <>
                     {/* Forms Section */}
                     <div className="flex flex-col gap-4 shrink-0">
                        {/* Rating Form */}
-                       <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-                         <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2"><span className="text-amber-400 text-base">★</span> Rate Quality</h3>
+                       <div className="place-popup-form">
+                         <h3 style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                           <span style={{ color: 'var(--yellow)', fontSize: '1rem' }}>★</span> Rate Quality
+                         </h3>
                          <form onSubmit={onSubmitReview} className="flex flex-col gap-3">
                            <div>
-                             <select name="rating" required className="w-full bg-slate-950/50 border border-slate-700 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-cyan-500">
+                             <select name="rating" required className="place-popup-form-input">
                                <option value="5">⭐⭐⭐⭐⭐ Excellent</option>
                                <option value="4">⭐⭐⭐⭐ Good</option>
                                <option value="3">⭐⭐⭐ Moderate</option>
@@ -1730,21 +1757,23 @@ export default function Dashboard() {
                              </select>
                            </div>
                            <div>
-                             <textarea name="comment" rows="2" maxLength="260" placeholder="Describe the conditions..." required className="w-full bg-slate-950/50 border border-slate-700 rounded-lg p-2.5 text-xs text-white resize-none focus:outline-none focus:border-cyan-500"></textarea>
+                             <textarea name="comment" rows="2" maxLength="260" placeholder="Describe the conditions..." required className="place-popup-form-input" style={{ resize: 'none' }}></textarea>
                            </div>
-                           <button type="submit" className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-medium text-xs py-2.5 rounded-lg transition-colors">Post Review</button>
+                           <button type="submit" className="btn-secondary" style={{ fontSize: '0.78rem' }}>Post Review</button>
                          </form>
                        </div>
 
                        {/* Complaint Form */}
-                       <div className="bg-rose-500/5 border border-rose-500/20 rounded-xl p-4">
-                         <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2"><span className="text-rose-400 text-base">⚠️</span> File a Complaint</h3>
-                         <div className="text-[10px] text-rose-300 bg-rose-500/10 p-2 rounded-lg mb-3 flex items-start gap-1.5 leading-tight">
-                           <span className="shrink-0 text-xs">🛡️</span> 
+                       <div className="place-popup-form danger">
+                         <h3 style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                           <span style={{ color: 'var(--red)', fontSize: '1rem' }}>⚠️</span> File a Complaint
+                         </h3>
+                         <div style={{ fontSize: '10px', color: 'var(--red)', background: 'var(--red-bg)', padding: 8, borderRadius: 8, marginBottom: 12, display: 'flex', alignItems: 'flex-start', gap: 6, lineHeight: 1.4 }}>
+                           <span style={{ flexShrink: 0, fontSize: '0.78rem' }}>🛡️</span> 
                            <span>GPS coordinates attached automatically. Faces will be blurred.</span>
                          </div>
                          <form onSubmit={onSubmitComplaint} className="flex flex-col gap-3">
-                            <select name="issue_type" required className="w-full bg-slate-950/50 border border-slate-700 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-rose-500">
+                            <select name="issue_type" required className="place-popup-form-input">
                               <option value="Pothole">Road / Pothole</option>
                               <option value="Streetlight">Streetlight Failure</option>
                               <option value="Water">Water Supply Defect</option>
@@ -1754,27 +1783,27 @@ export default function Dashboard() {
                               <option value="Encroachment">Public Space Encroachment</option>
                             </select>
                             
-                            <select name="severity" required className="w-full bg-slate-950/50 border border-slate-700 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-rose-500">
+                            <select name="severity" required className="place-popup-form-input">
                               <option value="1">Low - Minor issue</option>
                               <option value="2">Medium - Obstructive</option>
                               <option value="3">High - Safety concern</option>
                               <option value="5">Critical - Severe hazard</option>
                             </select>
                             
-                            <input type="text" name="street" placeholder="Exact street / Landmark..." className="w-full bg-slate-950/50 border border-slate-700 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-rose-500" />
+                            <input type="text" name="street" placeholder="Exact street / Landmark..." className="place-popup-form-input" />
                             
-                            <textarea name="description" rows="2" maxLength="300" placeholder="Describe the problem..." required className="w-full bg-slate-950/50 border border-slate-700 rounded-lg p-2.5 text-xs text-white resize-none focus:outline-none focus:border-rose-500"></textarea>
+                            <textarea name="description" rows="2" maxLength="300" placeholder="Describe the problem..." required className="place-popup-form-input" style={{ resize: 'none' }}></textarea>
                             
                             {uploadedImage ? (
-                              <div className="relative border border-slate-700 rounded-lg overflow-hidden h-24">
-                                <img src={uploadedImage} className="w-full h-full object-cover opacity-80" alt="Civic Issue" />
-                                <span className="absolute bottom-1 right-1 text-[9px] bg-slate-900/90 px-1.5 py-0.5 rounded text-cyan-400 font-medium">Face Blurred</span>
+                              <div className="uploaded-image-preview" style={{ height: 96 }}>
+                                <img src={uploadedImage} className="w-full h-full object-cover" style={{ opacity: 0.8 }} alt="Civic Issue" />
+                                <span className="preview-badge">Face Blurred</span>
                               </div>
                             ) : (
-                              <button type="button" onClick={handlePhotoUploadSimulation} className="w-full bg-slate-950/50 hover:bg-slate-800 text-slate-300 border border-slate-600 border-dashed text-xs py-3 rounded-lg transition-colors flex items-center justify-center gap-2">📸 Attach Photo Evidence</button>
+                              <button type="button" onClick={handlePhotoUploadSimulation} className="btn-secondary" style={{ fontSize: '0.78rem', borderStyle: 'dashed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>📸 Attach Photo Evidence</button>
                             )}
 
-                            <button type="submit" disabled={isSubmitting} className="w-full bg-rose-600 hover:bg-rose-500 disabled:opacity-50 disabled:hover:bg-rose-600 text-white font-medium text-xs py-2.5 rounded-lg transition-colors shadow-lg shadow-rose-900/20 flex justify-center items-center gap-2">
+                            <button type="submit" disabled={isSubmitting} style={{ width: '100%', background: 'var(--red)', color: '#fff', fontWeight: 500, fontSize: '0.78rem', padding: '10px', borderRadius: 8, border: 'none', cursor: 'pointer', transition: 'all 0.2s', opacity: isSubmitting ? 0.5 : 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, boxShadow: '0 4px 12px rgba(244, 63, 94, 0.2)' }}>
                               {isSubmitting ? (
                                 <>
                                   <Loader2 className="w-4 h-4 animate-spin" /> Uploading & Submitting...
@@ -1785,23 +1814,23 @@ export default function Dashboard() {
                        </div>
                     </div>
 
-                    <div className="h-px bg-white/10 shrink-0 w-full mt-2"></div>
+                    <div style={{ height: 1, background: 'var(--border-primary)', width: '100%', flexShrink: 0, marginTop: 8 }}></div>
 
                     {/* Lists Section */}
-                    <div className="flex flex-col gap-6 shrink-0 mt-2">
+                    <div className="flex flex-col gap-6 shrink-0" style={{ marginTop: 8 }}>
                       <div>
-                        <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3">Recent Reviews</h3>
+                        <h3 style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Recent Reviews</h3>
                         <ul className="flex flex-col gap-3">
                           {reviews.length === 0 ? (
-                            <li className="text-slate-500 text-xs italic text-center py-2 bg-white/5 rounded-lg">No reviews yet.</li>
+                            <li className="glass-inner" style={{ padding: '8px', textAlign: 'center', fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>No reviews yet.</li>
                           ) : (
                             reviews.slice(0, 5).map((r, i) => (
-                              <li key={i} className="bg-white/5 rounded-lg p-3 border border-white/5">
+                              <li key={i} className="glass-inner" style={{ padding: 12 }}>
                                 <div className="flex justify-between items-center mb-1">
-                                  <span className="text-amber-400 text-xs">{"★".repeat(r.rating) + "☆".repeat(5 - r.rating)}</span>
-                                  <span className="text-slate-500 text-[9px]">{new Date(r.created_at).toLocaleDateString()}</span>
+                                  <span style={{ color: 'var(--yellow)', fontSize: '0.78rem' }}>{"★".repeat(r.rating) + "☆".repeat(5 - r.rating)}</span>
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '9px' }}>{new Date(r.created_at).toLocaleDateString()}</span>
                                 </div>
-                                <p className="text-xs text-slate-200">{r.comment}</p>
+                                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>{r.comment}</p>
                               </li>
                             ))
                           )}
@@ -1809,21 +1838,21 @@ export default function Dashboard() {
                       </div>
 
                       <div>
-                        <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3">Recent Complaints</h3>
+                        <h3 style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Recent Complaints</h3>
                         <ul className="flex flex-col gap-3">
                           {placeComplaints.length === 0 ? (
-                            <li className="text-slate-500 text-xs italic text-center py-2 bg-white/5 rounded-lg">No complaints.</li>
+                            <li className="glass-inner" style={{ padding: '8px', textAlign: 'center', fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>No complaints.</li>
                           ) : (
                             placeComplaints.slice(0, 5).map((c, i) => (
-                              <li key={i} className="bg-white/5 rounded-lg p-3 border border-white/5">
+                              <li key={i} className="glass-inner" style={{ padding: 12 }}>
                                 <div className="flex justify-between items-start mb-1">
-                                  <span className="text-white text-xs font-semibold flex items-center gap-1.5">{ISSUE_ICONS[c.issue_type] || "📍"} {c.issue_type}</span>
-                                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide ${c.status === 'Resolved' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>{c.status}</span>
+                                  <span style={{ color: 'var(--text-primary)', fontSize: '0.78rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>{ISSUE_ICONS[c.issue_type] || "📍"} {c.issue_type}</span>
+                                  <span className={`badge-status ${c.status === 'Resolved' ? 'resolved' : 'inprogress'}`}>{c.status}</span>
                                 </div>
-                                <p className="text-xs text-slate-300 my-1.5">{c.description}</p>
-                                <div className="flex justify-between items-center text-[9px] text-slate-500">
+                                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '6px 0' }}>{c.description}</p>
+                                <div className="flex justify-between items-center" style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
                                   <span>Dept: {c.department}</span>
-                                  <button onClick={() => handleFlagComplaint(c.complaint_id)} className="hover:text-rose-400 transition-colors">🚩 Spam ({c.flags_count || 0})</button>
+                                  <button onClick={() => handleFlagComplaint(c.complaint_id)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '9px', transition: 'color 0.2s' }}>🚩 Spam ({c.flags_count || 0})</button>
                                 </div>
                               </li>
                             ))
@@ -1833,13 +1862,13 @@ export default function Dashboard() {
                     </div>
                   </>
                 ) : (
-                  <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-6 text-center flex flex-col items-center gap-3 mt-2 shrink-0">
-                    <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-400 text-2xl border border-amber-500/20">
+                  <div style={{ background: 'var(--yellow-bg)', border: '1px solid rgba(251, 191, 36, 0.2)', borderRadius: 12, padding: 24, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 8, flexShrink: 0 }}>
+                    <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--yellow-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', border: '1px solid rgba(251, 191, 36, 0.2)' }}>
                       🚫
                     </div>
                     <div>
-                      <h3 className="text-sm font-bold text-amber-400 mb-1.5">Out of Bounds</h3>
-                      <p className="text-xs text-slate-400 leading-relaxed">
+                      <h3 style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--yellow)', marginBottom: 6 }}>Out of Bounds</h3>
+                      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
                         This location falls outside our currently supported civic jurisdictions. Feedback and complaint services are disabled for this area.
                       </p>
                     </div>
@@ -1855,53 +1884,53 @@ export default function Dashboard() {
 
       {/* Citizen Authentication Modal */}
       {showCitizenModal && (
-        <div className="fixed inset-0 z-[2000] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#151717] rounded-[20px] p-[30px] w-full max-w-[450px] shadow-2xl flex flex-col gap-[10px] font-sans relative border border-slate-800">
-            <button onClick={() => setShowCitizenModal(false)} className="absolute right-6 top-6 text-slate-500 hover:text-slate-300 transition-colors">✕</button>
+        <div className="auth-modal-backdrop">
+          <div className="auth-modal">
+            <button onClick={() => setShowCitizenModal(false)} className="auth-modal-close">✕</button>
 
-            <h3 className="text-2xl font-bold text-white mb-2 tracking-tight">Citizen Sign In</h3>
+            <h3 className="auth-modal-title">Citizen Sign In</h3>
 
-            {/* Quick Citizen Test Profiles (kept as requested) */}
-            <div className="mb-3">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-2">
+            {/* Quick Citizen Test Profiles */}
+            <div className="auth-quick-profiles">
+              <span className="auth-quick-label">
                 ⚡ Quick Citizen Test Profiles
               </span>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="auth-quick-grid">
                 <button
                   type="button"
                   onClick={() => handleCitizenAuth("rahul.sharma@example.com", "citizen123")}
-                  className="p-2.5 rounded-[10px] bg-slate-900/50 border border-slate-800 hover:border-[#2d79f3] text-left transition-colors group"
+                  className="auth-quick-btn"
                 >
-                  <span className="text-[13px] font-bold text-white block group-hover:text-[#2d79f3]">Rahul Sharma</span>
-                  <span className="text-[11px] text-slate-500 mt-0.5 block">Lucknow (Trust: 85)</span>
+                  <span className="auth-quick-btn-name">Rahul Sharma</span>
+                  <span className="auth-quick-btn-info">Lucknow (Trust: 85)</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleCitizenAuth("priya.verma@example.com", "citizen123")}
-                  className="p-2.5 rounded-[10px] bg-slate-900/50 border border-slate-800 hover:border-[#2d79f3] text-left transition-colors group"
+                  className="auth-quick-btn"
                 >
-                  <span className="text-[13px] font-bold text-white block group-hover:text-[#2d79f3]">Priya Verma</span>
-                  <span className="text-[11px] text-slate-500 mt-0.5 block">Kanpur (Trust: 90)</span>
+                  <span className="auth-quick-btn-name">Priya Verma</span>
+                  <span className="auth-quick-btn-info">Kanpur (Trust: 90)</span>
                 </button>
               </div>
             </div>
 
             {citizenAuthError && (
-              <div className="p-3 rounded-[10px] bg-rose-500/10 border border-rose-500/30 text-rose-300 text-[13px]">
+              <div className="auth-error">
                 ⚠️ {citizenAuthError}
               </div>
             )}
 
-            <form onSubmit={(e) => { e.preventDefault(); handleCitizenAuth(); }} className="flex flex-col gap-[10px]">
+            <form onSubmit={(e) => { e.preventDefault(); handleCitizenAuth(); }} className="flex flex-col" style={{ gap: 10 }}>
               <div className="flex flex-col">
-                <label className="text-white font-semibold mb-2 text-[14px]">Email</label>
-                <div className="flex items-center border-[1.5px] border-slate-700 rounded-[10px] h-[50px] pl-[10px] transition-all duration-200 focus-within:border-[#2d79f3] bg-transparent">
-                  <svg height="20" viewBox="0 0 32 32" width="20" xmlns="http://www.w3.org/2000/svg" className="fill-slate-400 shrink-0">
+                <label className="auth-field-label">Email</label>
+                <div className="auth-field-wrap">
+                  <svg height="20" viewBox="0 0 32 32" width="20" xmlns="http://www.w3.org/2000/svg" className="auth-icon">
                     <g id="Layer_3" data-name="Layer 3"><path d="m30.853 13.87a15 15 0 0 0 -29.729 4.082 15.1 15.1 0 0 0 12.876 12.918 15.6 15.6 0 0 0 2.016.13 14.85 14.85 0 0 0 7.715-2.145 1 1 0 1 0 -1.031-1.711 13.007 13.007 0 1 1 5.458-6.529 2.149 2.149 0 0 1 -4.158-.759v-10.856a1 1 0 0 0 -2 0v1.726a8 8 0 1 0 .2 10.325 4.135 4.135 0 0 0 7.83.274 15.2 15.2 0 0 0 .823-7.455zm-14.853 8.13a6 6 0 1 1 6-6 6.006 6.006 0 0 1 -6 6z"></path></g>
                   </svg>
                   <input 
                     type="email" 
-                    className="ml-[10px] rounded-[10px] border-none w-[85%] h-full bg-transparent focus:outline-none text-white text-[14px] placeholder:text-slate-500" 
+                    className="auth-field-input" 
                     placeholder="Enter your Email"
                     value={citizenEmail}
                     onChange={(e) => setCitizenEmail(e.target.value)}
@@ -1910,47 +1939,47 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div className="flex flex-col mt-2">
-                <label className="text-white font-semibold mb-2 text-[14px]">Password</label>
-                <div className="flex items-center border-[1.5px] border-slate-700 rounded-[10px] h-[50px] pl-[10px] pr-4 transition-all duration-200 focus-within:border-[#2d79f3] bg-transparent">
-                  <svg height="20" viewBox="-64 0 512 512" width="20" xmlns="http://www.w3.org/2000/svg" className="fill-slate-400 shrink-0"><path d="m336 512h-288c-26.453125 0-48-21.523438-48-48v-224c0-26.476562 21.546875-48 48-48h288c26.453125 0 48 21.523438 48 48v224c0 26.476562-21.546875 48-48 48zm-288-288c-8.8125 0-16 7.167969-16 16v224c0 8.832031 7.1875 16 16 16h288c8.8125 0 16-7.167969 16-16v-224c0-8.832031-7.1875-16-16-16zm0 0"></path><path d="m304 224c-8.832031 0-16-7.167969-16-16v-80c0-52.929688-43.070312-96-96-96s-96 43.070312-96 96v80c0 8.832031-7.167969 16-16 16s-16-7.167969-16-16v-80c0-70.59375 57.40625-128 128-128s128 57.40625 128 128v80c0 8.832031-7.167969 16-16 16zm0 0"></path></svg>        
+              <div className="flex flex-col" style={{ marginTop: 8 }}>
+                <label className="auth-field-label">Password</label>
+                <div className="auth-field-wrap" style={{ paddingRight: 16 }}>
+                  <svg height="20" viewBox="-64 0 512 512" width="20" xmlns="http://www.w3.org/2000/svg" className="auth-icon"><path d="m336 512h-288c-26.453125 0-48-21.523438-48-48v-224c0-26.476562 21.546875-48 48-48h288c26.453125 0 48 21.523438 48 48v224c0 26.476562-21.546875 48-48 48zm-288-288c-8.8125 0-16 7.167969-16 16v224c0 8.832031 7.1875 16 16 16h288c8.8125 0 16-7.167969 16-16v-224c0-8.832031-7.1875-16-16-16zm0 0"></path><path d="m304 224c-8.832031 0-16-7.167969-16-16v-80c0-52.929688-43.070312-96-96-96s-96 43.070312-96 96v80c0 8.832031-7.167969 16-16 16s-16-7.167969-16-16v-80c0-70.59375 57.40625-128 128-128s128 57.40625 128 128v80c0 8.832031-7.167969 16-16 16zm0 0"></path></svg>        
                   <input 
                     type="password" 
-                    className="ml-[10px] rounded-[10px] border-none w-full h-full bg-transparent focus:outline-none text-white text-[14px] placeholder:text-slate-500" 
+                    className="auth-field-input" 
                     placeholder="Enter your Password"
                     value={citizenPassword}
                     onChange={(e) => setCitizenPassword(e.target.value)}
                     required
                   />
-                  <svg viewBox="0 0 576 512" height="1em" xmlns="http://www.w3.org/2000/svg" className="fill-slate-400 cursor-pointer ml-2 hover:fill-slate-200 transition-colors shrink-0"><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM144 256a144 144 0 1 1 288 0 144 144 0 1 1 -288 0zm144-64c0 35.3-28.7 64-64 64c-7.1 0-13.9-1.2-20.3-3.3c-5.5-1.8-11.9 1.6-11.7 7.4c.3 6.9 1.3 13.8 3.2 20.7c13.7 51.2 66.4 81.6 117.6 67.9s81.6-66.4 67.9-117.6c-11.1-41.5-47.8-69.4-88.6-71.1c-5.8-.2-9.2 6.1-7.4 11.7c2.1 6.4 3.3 13.2 3.3 20.3z"></path></svg>
+                  <svg viewBox="0 0 576 512" height="1em" xmlns="http://www.w3.org/2000/svg" className="auth-icon" style={{ cursor: 'pointer', marginLeft: 8 }}><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM144 256a144 144 0 1 1 288 0 144 144 0 1 1 -288 0zm144-64c0 35.3-28.7 64-64 64c-7.1 0-13.9-1.2-20.3-3.3c-5.5-1.8-11.9 1.6-11.7 7.4c.3 6.9 1.3 13.8 3.2 20.7c13.7 51.2 66.4 81.6 117.6 67.9s81.6-66.4 67.9-117.6c-11.1-41.5-47.8-69.4-88.6-71.1c-5.8-.2-9.2 6.1-7.4 11.7c2.1 6.4 3.3 13.2 3.3 20.3z"></path></svg>
                 </div>
               </div>
             
-              <div className="flex flex-row items-center justify-between mt-2">
-                <div className="flex items-center gap-[10px]">
-                  <input type="checkbox" id="remember" className="w-4 h-4 rounded border-slate-700 bg-transparent text-[#2d79f3] focus:ring-[#2d79f3] cursor-pointer" />
-                  <label htmlFor="remember" className="text-[14px] text-slate-300 font-normal cursor-pointer select-none">Remember me </label>
+              <div className="auth-remember-row">
+                <div className="flex items-center" style={{ gap: 10 }}>
+                  <input type="checkbox" id="remember" className="auth-checkbox" />
+                  <label htmlFor="remember" className="auth-remember-label">Remember me</label>
                 </div>
-                <span className="text-[14px] ml-[5px] text-[#2d79f3] font-medium cursor-pointer hover:text-blue-400 transition-colors">Forgot password?</span>
+                <span className="auth-link">Forgot password?</span>
               </div>
               
-              <button type="submit" className="mt-5 mb-[10px] bg-[#2d79f3] hover:bg-[#2563eb] text-white text-[15px] font-medium rounded-[10px] h-[50px] w-full cursor-pointer transition-colors border-none shadow-[0_4px_14px_0_rgb(45,121,243,0.39)]">
+              <button type="submit" className="auth-submit-btn">
                 Sign In
               </button>
             </form>
 
-            <p className="text-center text-slate-300 text-[14px] my-[5px]">
-              Don't have an account? <span className="text-[14px] ml-[5px] text-[#2d79f3] font-medium cursor-pointer hover:text-blue-400 transition-colors">Sign Up</span>
+            <p className="auth-footer">
+              Don't have an account? <span className="auth-link" style={{ marginLeft: 4 }}>Sign Up</span>
             </p>
             
-            <div className="flex items-center justify-center gap-4 my-2">
-              <div className="h-[1px] flex-1 bg-slate-800"></div>
-              <p className="text-slate-500 text-[12px] font-medium uppercase tracking-wider">Or With</p>
-              <div className="h-[1px] flex-1 bg-slate-800"></div>
+            <div className="auth-divider">
+              <div className="auth-divider-line"></div>
+              <p className="auth-divider-text">Or With</p>
+              <div className="auth-divider-line"></div>
             </div>
 
-            <div className="flex flex-row gap-[10px]">
-              <button type="button" className="mt-[10px] w-full h-[50px] rounded-[10px] flex justify-center items-center font-medium gap-[10px] border border-slate-700 bg-slate-900/50 text-slate-200 cursor-pointer transition-colors hover:border-[#2d79f3] hover:bg-slate-900">
+            <div className="flex flex-row" style={{ gap: 10 }}>
+              <button type="button" className="auth-social-btn">
                 <svg version="1.1" width="20" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 512 512" style={{enableBackground:"new 0 0 512 512"}} xmlSpace="preserve">
                   <path style={{fill:"#FBBB00"}} d="M113.47,309.408L95.648,375.94l-65.139,1.378C11.042,341.211,0,299.9,0,256c0-42.451,10.324-82.483,28.624-117.732h0.014l57.992,10.632l25.404,57.644c-5.317,15.501-8.215,32.141-8.215,49.456C103.821,274.792,107.225,292.797,113.47,309.408z"></path>
                   <path style={{fill:"#518EF8"}} d="M507.527,208.176C510.467,223.662,512,239.655,512,256c0,18.328-1.927,36.206-5.598,53.451c-12.462,58.683-45.025,109.925-90.134,146.187l-0.014-0.014l-73.044-3.727l-10.338-64.535c29.932-17.554,53.324-45.025,65.646-77.911h-136.89V208.176h138.887L507.527,208.176L507.527,208.176z"></path>
@@ -1960,8 +1989,8 @@ export default function Dashboard() {
                 Google 
               </button>
               
-              <button type="button" className="mt-[10px] w-full h-[50px] rounded-[10px] flex justify-center items-center font-medium gap-[10px] border border-slate-700 bg-slate-900/50 text-slate-200 cursor-pointer transition-colors hover:border-[#2d79f3] hover:bg-slate-900">
-                <svg version="1.1" height="20" width="20" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 22.773 22.773" style={{enableBackground:"new 0 0 22.773 22.773"}} xmlSpace="preserve" className="fill-slate-200">
+              <button type="button" className="auth-social-btn">
+                <svg version="1.1" height="20" width="20" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 22.773 22.773" style={{enableBackground:"new 0 0 22.773 22.773"}} xmlSpace="preserve" className="auth-icon">
                   <g><g> <path d="M15.769,0c0.053,0,0.106,0,0.162,0c0.13,1.606-0.483,2.806-1.228,3.675c-0.731,0.863-1.732,1.7-3.351,1.573 c-0.108-1.583,0.506-2.694,1.25-3.561C13.292,0.879,14.557,0.16,15.769,0z"></path> <path d="M20.67,16.716c0,0.016,0,0.03,0,0.045c-0.455,1.378-1.104,2.559-1.896,3.655c-0.723,0.995-1.609,2.334-3.191,2.334 c-1.367,0-2.275-0.879-3.676-0.903c-1.482-0.024-2.297,0.735-3.652,0.926c-0.155,0-0.31,0-0.462,0 c-0.995-0.144-1.798-0.932-2.383-1.642c-1.725-2.098-3.058-4.808-3.306-8.276c0-0.34,0-0.679,0-1.019 c0.105-2.482,1.311-4.5,2.914-5.478c0.846-0.52,2.009-0.963,3.304-0.765c0.555,0.086,1.122,0.276,1.619,0.464 c0.471,0.181,1.06,0.502,1.618,0.485c0.378-0.011,0.754-0.208,1.135-0.347c1.116-0.403,2.21-0.865,3.652-0.648 c1.733,0.262,2.963,1.032,3.723,2.22c-1.466,0.933-2.625,2.339-2.427,4.74C17.818,14.688,19.086,15.964,20.67,16.716z"></path> </g></g>
                 </svg>
                 Apple 
@@ -1973,24 +2002,16 @@ export default function Dashboard() {
 
       {/* Global Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-6 right-6 z-[3000] animate-in slide-in-from-right fade-in duration-300">
-          <div className={`flex items-start gap-3 px-4 py-3 rounded-xl shadow-2xl border backdrop-blur-md ${
-            toastMessage.type === 'success' ? 'bg-emerald-950/80 border-emerald-500/50' : 
-            toastMessage.type === 'error' ? 'bg-rose-950/80 border-rose-500/50' : 
-            'bg-amber-950/80 border-amber-500/50'
-          }`}>
-            {toastMessage.type === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />}
-            {toastMessage.type === 'error' && <XCircle className="w-5 h-5 text-rose-400 shrink-0" />}
-            {toastMessage.type === 'warning' && <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />}
-            <p className={`text-sm font-medium ${
-              toastMessage.type === 'success' ? 'text-emerald-100' :
-              toastMessage.type === 'error' ? 'text-rose-100' :
-              'text-amber-100'
-            }`}>
+        <div className="toast-container">
+          <div className={`toast ${toastMessage.type}`}>
+            {toastMessage.type === 'success' && <CheckCircle2 className="w-5 h-5 shrink-0" style={{ color: 'var(--green)' }} />}
+            {toastMessage.type === 'error' && <XCircle className="w-5 h-5 shrink-0" style={{ color: 'var(--red)' }} />}
+            {toastMessage.type === 'warning' && <AlertTriangle className="w-5 h-5 shrink-0" style={{ color: 'var(--yellow)' }} />}
+            <p className="toast-text">
               {toastMessage.message}
             </p>
-            <button onClick={() => setToastMessage(null)} className="opacity-50 hover:opacity-100 transition-opacity">
-              <XCircle className="w-4 h-4 text-white" />
+            <button onClick={() => setToastMessage(null)} className="toast-close">
+              <XCircle className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -1998,3 +2019,4 @@ export default function Dashboard() {
     </>
   );
 }
+
