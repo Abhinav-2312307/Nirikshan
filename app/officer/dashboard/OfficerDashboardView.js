@@ -3,6 +3,33 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import L from "leaflet";
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  Sun, 
+  Moon, 
+  Map as MapIcon, 
+  Layers, 
+  Search, 
+  CheckCircle2, 
+  AlertTriangle, 
+  Clock, 
+  Send, 
+  Plus, 
+  LogOut, 
+  Users, 
+  BarChart3, 
+  DollarSign, 
+  Mail, 
+  Building2, 
+  ArrowUpRight, 
+  FileText, 
+  RefreshCw, 
+  ShieldCheck, 
+  Check, 
+  X,
+  SlidersHorizontal
+} from "lucide-react";
 
 const ISSUE_ICONS = {
   Pothole: "🕳️",
@@ -41,9 +68,10 @@ export default function OfficerDashboardView() {
   const [token, setToken] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // Active navigation section: "map", "complaints", "funds", "memos", "subordinates", "scorecard"
+  // Active navigation section: "map", "aqi", "complaints", "funds", "memos", "subordinates", "scorecard"
   const [activeSection, setActiveSection] = useState("map");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [theme, setTheme] = useState("dark");
 
   // Data states
   const [complaints, setComplaints] = useState([]);
@@ -118,7 +146,23 @@ export default function OfficerDashboardView() {
     setTimeout(() => setNotification(null), 4000);
   };
 
-  // 1. Check Officer Authentication Session & Handle Responsive Sidebar
+  // Hydrate theme from localStorage
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("nirikshan_theme");
+    if (savedTheme === "light" || savedTheme === "dark") {
+      setTheme(savedTheme);
+      document.documentElement.setAttribute("data-theme", savedTheme);
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    document.documentElement.setAttribute("data-theme", next);
+    localStorage.setItem("nirikshan_theme", next);
+  };
+
+  // Responsive sidebar handling
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth < 1200) {
@@ -132,7 +176,7 @@ export default function OfficerDashboardView() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // 2. Fetch Data from Endpoints
+  // Fetch officer data
   const fetchInitialData = useCallback(async (activeToken) => {
     setLoading(true);
     try {
@@ -194,7 +238,7 @@ export default function OfficerDashboardView() {
     }
   }, [router, fetchInitialData]);
 
-  // Fast switch accounts for testing
+  // Fast switch identity for testing
   const handleQuickSwitch = async (email) => {
     try {
       const res = await fetch("/api/auth/login", {
@@ -210,7 +254,6 @@ export default function OfficerDashboardView() {
         setToken(data.token);
         showNotification(`Switched identity to ${data.officer.name} (${data.officer.badge})`, "info");
         await fetchInitialData(data.token);
-        // Re-focus map to new officer jurisdiction
         if (mapInstanceRef.current && data.officer.jurisdiction) {
           const { lat, lng, zoom } = data.officer.jurisdiction;
           mapInstanceRef.current.flyTo([lat, lng], zoom, { duration: 1.2 });
@@ -227,7 +270,7 @@ export default function OfficerDashboardView() {
     router.push("/officer/login");
   };
 
-  // 3. Initialize Map with Leaflet
+  // Initialize Leaflet Map
   useEffect(() => {
     if (!mapContainerRef.current || !officer) return;
 
@@ -239,15 +282,15 @@ export default function OfficerDashboardView() {
       const map = L.map(mapContainerRef.current, {
         center: [centerLat, centerLng],
         zoom: initialZoom,
-        zoomControl: false
+        zoomControl: false,
+        preferCanvas: true
       });
 
       L.control.zoom({ position: "bottomright" }).addTo(map);
 
-      // Base tile layer
-      const getTileUrl = (theme) => {
-        if (theme === "street") return "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-        if (theme === "satellite") return "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+      const getTileUrl = (themeMode) => {
+        if (themeMode === "street") return "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+        if (themeMode === "satellite") return "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
         return "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}";
       };
 
@@ -259,7 +302,6 @@ export default function OfficerDashboardView() {
       mapInstanceRef.current = map;
       mapInstanceRef.current.tileLayer = tileLayer;
       
-      // Initialize reference layer for labels
       const refLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}", {
         pane: 'markerPane'
       });
@@ -270,14 +312,28 @@ export default function OfficerDashboardView() {
 
       const markersGroup = L.layerGroup().addTo(map);
       markersGroupRef.current = markersGroup;
+
+      const resizeObserver = new ResizeObserver(() => {
+        map.invalidateSize();
+      });
+      resizeObserver.observe(mapContainerRef.current);
+      map._resizeObserver = resizeObserver;
     } else {
-      // Re-center if officer changes
       const { lat, lng, zoom } = officer.jurisdiction || { lat: 26.8467, lng: 80.9462, zoom: 13 };
       mapInstanceRef.current.setView([lat, lng], zoom);
+      setTimeout(() => {
+        if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize();
+      }, 100);
     }
+
+    return () => {
+      if (mapInstanceRef.current && mapInstanceRef.current._resizeObserver) {
+        mapInstanceRef.current._resizeObserver.disconnect();
+      }
+    };
   }, [officer, mapTheme]);
 
-  // Update map tiles on theme change
+  // Update map tiles
   useEffect(() => {
     if (!mapInstanceRef.current || !mapInstanceRef.current.tileLayer) return;
     const urls = {
@@ -294,7 +350,7 @@ export default function OfficerDashboardView() {
     }
   }, [mapTheme]);
 
-  // Render complaint markers on map
+  // Render complaint markers
   useEffect(() => {
     if (!mapInstanceRef.current || !markersGroupRef.current) return;
     markersGroupRef.current.clearLayers();
@@ -309,15 +365,14 @@ export default function OfficerDashboardView() {
       const isEscalated = c.escalated;
 
       const markerHtml = `
-        <div class="relative flex items-center justify-center w-8 h-8 rounded-full border shadow-lg transition-transform hover:scale-110 ${
-          isResolved 
-            ? "bg-emerald-950/90 border-emerald-400 text-emerald-300"
-            : isEscalated
-            ? "bg-rose-950/90 border-rose-500 text-rose-300 animate-pulse ring-2 ring-rose-500/50"
-            : "bg-slate-900/90 border-amber-400 text-amber-300"
-        }">
-          <span class="text-sm">${iconEmoji}</span>
-          ${isEscalated ? `<span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full"></span>` : ""}
+        <div class="relative flex items-center justify-center w-8 h-8 rounded-full border shadow-lg transition-transform hover:scale-125" style="
+          background: ${isResolved ? 'rgba(16, 185, 129, 0.85)' : isEscalated ? 'rgba(244, 63, 94, 0.85)' : 'rgba(13, 17, 23, 0.85)'};
+          backdrop-filter: blur(8px);
+          border: 2px solid ${isResolved ? '#10b981' : isEscalated ? '#f43f5e' : 'var(--accent-1)'};
+          box-shadow: 0 4px 14px ${isResolved ? 'rgba(16, 185, 129, 0.4)' : isEscalated ? 'rgba(244, 63, 94, 0.4)' : 'rgba(34, 211, 238, 0.4)'};
+        ">
+          <span style="font-size: 14px;">${iconEmoji}</span>
+          ${isEscalated ? `<span style="position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; background: #f43f5e; border-radius: 50%; border: 1.5px solid #fff;"></span>` : ""}
         </div>
       `;
 
@@ -332,24 +387,24 @@ export default function OfficerDashboardView() {
 
       const hasImage = !!c.image_url;
       const popupHtml = `
-        <div style="font-family: inherit; min-width: 240px; color: #f8fafc; padding: 14px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-            <strong style="color: #38bdf8; font-size: 14px; display: flex; align-items: center; gap: 4px;">${iconEmoji} ${c.issue_type}</strong>
-            <span style="font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 9999px; background: ${isResolved ? 'rgba(16, 185, 129, 0.2)' : 'rgba(244, 63, 94, 0.2)'}; color: ${isResolved ? '#34d399' : '#fb7185'}; border: 1px solid ${isResolved ? 'rgba(52, 211, 153, 0.3)' : 'rgba(251, 113, 133, 0.3)'};">${c.status}</span>
+        <div style="font-family: var(--font-body); min-width: 250px; color: var(--text-primary); padding: 14px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <strong style="color: var(--accent-1); font-size: 14px; font-family: var(--font-title); display: flex; align-items: center; gap: 6px;">${iconEmoji} ${c.issue_type}</strong>
+            <span class="badge-status ${isResolved ? 'resolved' : 'inprogress'}">${c.status}</span>
           </div>
           
-          <p style="font-size: 13px; margin: 0 0 4px 0; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.8);">${c.street ? c.street + ', ' : ''}${c.place_name || "Civic Spot"}</p>
-          <p style="font-size: 11px; color: #cbd5e1; margin: 0 0 12px 0; line-height: 1.4;">${c.description}</p>
+          <p style="font-size: 13px; margin: 0 0 4px 0; font-weight: 700; color: var(--text-primary);">${c.street ? c.street + ', ' : ''}${c.place_name || "Civic Spot"}</p>
+          <p style="font-size: 12px; color: var(--text-secondary); margin: 0 0 12px 0; line-height: 1.4;">${c.description}</p>
           
           ${hasImage ? `
-            <div style="margin-bottom: 12px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);">
+            <div style="margin-bottom: 12px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-primary);">
               <img src="${c.image_url}" alt="Complaint image" style="width: 100%; height: 130px; object-fit: cover; display: block;" />
             </div>
           ` : ''}
           
-          <div style="display: flex; gap: 8px; font-size: 10px; color: #94a3b8; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
-            <span style="background: rgba(0,0,0,0.3); padding: 3px 8px; border-radius: 4px;">Trust: <strong style="color: #e2e8f0;">${c.user_trust_score || 80}</strong></span>
-            <span style="background: rgba(0,0,0,0.3); padding: 3px 8px; border-radius: 4px;">Open: <strong style="color: #e2e8f0;">${c.days_open || 1}d</strong></span>
+          <div style="display: flex; justify-content: space-between; gap: 8px; font-size: 10px; color: var(--text-muted); border-top: 1px solid var(--border-primary); padding-top: 8px;">
+            <span>Trust Score: <strong style="color: var(--green);">${c.user_trust_score || 80}</strong></span>
+            <span>Open: <strong style="color: var(--text-primary);">${c.days_open || 1}d</strong></span>
           </div>
         </div>
       `;
@@ -365,7 +420,7 @@ export default function OfficerDashboardView() {
     });
   }, [complaints]);
 
-  // Load official boundary geojson based on officer jurisdiction
+  // Load boundary geojson
   useEffect(() => {
     if (!mapInstanceRef.current || !officer?.jurisdiction) return;
 
@@ -393,10 +448,10 @@ export default function OfficerDashboardView() {
             return name.toLowerCase().includes(jur.feature_name.toLowerCase());
           },
           style: {
-            color: "#f59e0b",
+            color: "var(--accent-1)",
             weight: 2.5,
-            dashArray: "4, 6",
-            fillColor: "#f59e0b",
+            dashArray: "5, 7",
+            fillColor: "var(--accent-1)",
             fillOpacity: 0.08
           }
         });
@@ -414,7 +469,7 @@ export default function OfficerDashboardView() {
       });
   }, [officer]);
 
-  // Action handlers
+  // Actions
   const handleAdvanceStatus = async () => {
     if (!selectedComplaint) return;
     try {
@@ -643,7 +698,6 @@ export default function OfficerDashboardView() {
     }
   };
 
-  // Filter complaints
   const filteredComplaints = complaints.filter((c) => {
     if (complaintFilter === "active" && ["Resolved", "Closed", "Rejected"].includes(c.status)) return false;
     if (complaintFilter === "escalated" && !c.escalated) return false;
@@ -660,11 +714,10 @@ export default function OfficerDashboardView() {
   });
 
   const scoreToColor = (score) => {
-    if (score >= 90) return "#10b981"; // Emerald
-    if (score >= 70) return "#84cc16"; // Lime
-    if (score >= 50) return "#eab308"; // Yellow
-    if (score >= 30) return "#f97316"; // Orange
-    return "#ef4444"; // Red
+    if (score >= 81) return "var(--green)"; // excellent
+    if (score >= 61) return "#84cc16"; // good
+    if (score >= 31) return "var(--yellow)"; // moderate
+    return "var(--red)"; // critical
   };
 
   const refreshAqiLayer = useCallback(async (level = null, force = false) => {
@@ -705,7 +758,7 @@ export default function OfficerDashboardView() {
       style: (feature) => {
         return {
           fillColor: scoreToColor(feature.properties.area_score),
-          color: "#ffffff",
+          color: "var(--glass-border)",
           weight: 1.5,
           fillOpacity: 0.45,
           className: "aqi-region"
@@ -714,15 +767,15 @@ export default function OfficerDashboardView() {
       onEachFeature: (feature, childLayer) => {
         const areaName = feature.properties.name || "Administrative Area";
         childLayer.bindTooltip(`
-          <div class="area-tooltip-content" style="font-family: inherit; font-size: 12px; font-weight: 500; color: #f8fafc;">
-            <div style="font-weight: bold; margin-bottom: 2px;">${areaName}</div>
-            <div style="font-size: 11px; padding: 2px 6px; border-radius: 4px; background:${scoreToColor(feature.properties.area_score)}44; color:${scoreToColor(feature.properties.area_score)}; border: 1px solid ${scoreToColor(feature.properties.area_score)}; display: inline-block;">
+          <div style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--text-primary); padding: 4px;">
+            <div style="font-weight: 700; margin-bottom: 2px;">${areaName}</div>
+            <div style="font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(34, 211, 238, 0.15); color: var(--accent-1); display: inline-block;">
               AQI Score: ${feature.properties.area_score}
             </div>
           </div>
         `, { sticky: true });
 
-        childLayer.on("mouseover", (e) => {
+        childLayer.on("mouseover", () => {
           setHoveredArea({
             name: areaName,
             level: level,
@@ -732,14 +785,14 @@ export default function OfficerDashboardView() {
             city: feature.properties.city
           });
           if (typeof childLayer.setStyle === "function") {
-            childLayer.setStyle({ color: "#c084fc", weight: 2.5 });
+            childLayer.setStyle({ color: "var(--accent-1)", weight: 2.5 });
           }
         });
 
-        childLayer.on("mouseout", (e) => {
+        childLayer.on("mouseout", () => {
           setHoveredArea(null);
           if (typeof childLayer.setStyle === "function") {
-            childLayer.setStyle({ color: "#ffffff", weight: 1.5 });
+            childLayer.setStyle({ color: "var(--glass-border)", weight: 1.5 });
           }
         });
       }
@@ -778,347 +831,401 @@ export default function OfficerDashboardView() {
       if (aqiLayerRef.current && map.hasLayer(aqiLayerRef.current)) {
         map.removeLayer(aqiLayerRef.current);
       }
-      if (activeSection === "map") {
-        if (markersGroupRef.current && !map.hasLayer(markersGroupRef.current)) {
-          markersGroupRef.current.addTo(map);
-        }
+      if (markersGroupRef.current && !map.hasLayer(markersGroupRef.current)) {
+        markersGroupRef.current.addTo(map);
       }
+    }
+
+    if (activeSection === "map" || activeSection === "aqi") {
+      setTimeout(() => {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize();
+        }
+      }, 100);
     }
   }, [activeSection, refreshAqiLayer]);
 
   if (!officer) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-slate-950 text-slate-100 font-sans">
+      <div className="h-screen w-screen flex items-center justify-center" style={{ background: "var(--bg-primary)", color: "var(--text-primary)" }}>
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-sm font-medium tracking-wide text-amber-400">Loading Nirikshan Command Console...</p>
+          <div className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--accent-1)", borderTopColor: "transparent" }}></div>
+          <p className="text-sm font-semibold tracking-wide" style={{ color: "var(--accent-1)", fontFamily: "var(--font-title)" }}>
+            Loading Nirikshan Command Console...
+          </p>
         </div>
       </div>
     );
   }
 
+  // Summary counts for HUD stats
+  const pendingCount = complaints.filter(c => !["Resolved", "Closed"].includes(c.status)).length;
+  const resolvedCount = complaints.filter(c => ["Resolved", "Closed"].includes(c.status)).length;
+  const escalatedCount = complaints.filter(c => c.escalated).length;
+
   return (
-    <div className="h-screen w-full flex flex-col bg-slate-950 text-slate-100 font-sans overflow-hidden">
-      <style dangerouslySetInnerHTML={{__html: `
-        .glass-popup .leaflet-popup-content-wrapper {
-          background: rgba(15, 23, 42, 0.85) !important;
-          backdrop-filter: blur(16px) saturate(180%) !important;
-          -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
-          border: 1px solid rgba(255, 255, 255, 0.12) !important;
-          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5) !important;
-          border-radius: 16px !important;
-          padding: 0 !important;
-        }
-        .glass-popup .leaflet-popup-tip {
-          background: rgba(15, 23, 42, 0.95) !important;
-          border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
-          border-left: 1px solid rgba(255, 255, 255, 0.12) !important;
-          backdrop-filter: blur(16px) saturate(180%) !important;
-        }
-        .glass-popup .leaflet-popup-content {
-          margin: 0 !important;
-          padding: 0 !important;
-        }
-        .glass-popup .leaflet-popup-close-button {
-          color: #94a3b8 !important;
-          top: 10px !important;
-          right: 10px !important;
-          z-index: 10;
-        }
-        .glass-popup .leaflet-popup-close-button:hover {
-          color: #fff !important;
-        }
-      `}} />
+    <div className="flex h-screen w-screen overflow-hidden" style={{ background: "var(--bg-primary)", color: "var(--text-primary)" }}>
       {/* Toast Notification */}
       {notification && (
-        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl border shadow-2xl backdrop-blur-lg text-xs font-semibold flex items-center gap-2 animate-in fade-in duration-200 ${
-          notification.type === "error" 
-            ? "bg-rose-950/90 border-rose-500/50 text-rose-200" 
-            : notification.type === "info"
-            ? "bg-cyan-950/90 border-cyan-500/50 text-cyan-200"
-            : "bg-emerald-950/90 border-emerald-500/50 text-emerald-200"
-        }`}>
+        <div 
+          className="fixed top-5 right-5 z-50 px-4 py-3 rounded-2xl border text-xs font-semibold flex items-center gap-2.5 shadow-2xl animate-in fade-in slide-in-from-top-2"
+          style={{
+            background: notification.type === "error" ? "var(--red-bg)" : "var(--glass-bg-strong)",
+            borderColor: notification.type === "error" ? "var(--red-border)" : "var(--glass-border)",
+            backdropFilter: "var(--glass-blur)",
+            WebkitBackdropFilter: "var(--glass-blur)",
+            color: notification.type === "error" ? "var(--red)" : "var(--accent-1)"
+          }}
+        >
           <span>{notification.type === "error" ? "⚠️" : notification.type === "info" ? "ℹ️" : "✓"}</span>
+          <span>{notification.msg}</span>
         </div>
       )}
 
-      {/* Top Navigation Bar */}
-      <header className="h-16 border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md px-4 lg:px-6 flex items-center justify-between z-30 shrink-0 gap-3">
-        {/* Brand & Department */}
-        <div className="flex items-center gap-3 shrink-0 min-w-0">
-          <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
-            title="Toggle Navigation Menu"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
+      {/* FLOATING SIDEBAR (matches user portal sidebar design) */}
+      <aside className={`sidebar ${sidebarCollapsed ? 'w-[80px]' : 'w-[280px] xl:w-[300px]'}`}>
+        {/* Toggle Button */}
+        <button 
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          className="sidebar-toggle"
+          title="Toggle Sidebar"
+        >
+          {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+        </button>
 
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center font-bold text-lg text-white shadow-lg shadow-amber-500/20 border border-amber-400/30 shrink-0">
-              🏛️
+        {/* Sidebar Brand Header */}
+        <div className={`transition-all duration-300 ${sidebarCollapsed ? 'py-5 flex justify-center items-center' : 'p-6'}`}>
+          {sidebarCollapsed ? (
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shadow-md cursor-pointer hover:scale-105 transition-transform" 
+                 onClick={() => setSidebarCollapsed(false)}
+                 title="Expand Sidebar"
+                 style={{ background: "var(--accent-gradient-vibrant)", color: "#ffffff" }}>
+              N
             </div>
+          ) : (
+            <>
+              <h1 className="text-xl font-bold m-0 flex items-center gap-2 whitespace-nowrap" style={{ color: "var(--text-primary)" }}>
+                <span className="sidebar-brand-dot"></span>
+                <span className="sidebar-brand-title">Nirikshan Command</span>
+              </h1>
+              <p className="sidebar-brand-subtitle mt-1 ml-4 whitespace-nowrap">
+                Administrative Oversight Console
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* Navigation Links */}
+        <nav className={`flex flex-col gap-1.5 mt-1 ${sidebarCollapsed ? 'px-2' : 'px-4'} transition-all overflow-y-auto flex-1 min-h-0`}>
+          {[
+            { id: "map", label: "Command Map", icon: "🗺️", count: null },
+            { id: "aqi", label: "AQI Area Score", icon: "🍃", count: null },
+            { id: "complaints", label: "Area Grievances", icon: "📋", count: complaints.length },
+            { id: "funds", label: "Fund Requisitions", icon: "💰", count: funds.length },
+            { id: "memos", label: "Official Memos", icon: "✉️", count: memos.length },
+            { id: "subordinates", label: "Junior Officers", icon: "👥", count: subordinates.length },
+            { id: "scorecard", label: "Area Scorecard", icon: "📊", count: null }
+          ].map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveSection(item.id)}
+              title={item.label}
+              className={`sidebar-nav-btn ${activeSection === item.id ? "active" : ""} ${sidebarCollapsed ? 'justify-center px-3' : ''}`}
+            >
+              <span className="text-lg shrink-0">{item.icon}</span>
+              {!sidebarCollapsed && <span className="flex-1 truncate">{item.label}</span>}
+              {!sidebarCollapsed && item.count !== null && (
+                <span 
+                  className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold"
+                  style={{
+                    background: activeSection === item.id ? "rgba(var(--accent-1-rgb), 0.25)" : "var(--glass-inner-bg)",
+                    color: activeSection === item.id ? "var(--text-primary)" : "var(--text-muted)",
+                    border: "1px solid var(--border-subtle)"
+                  }}
+                >
+                  {item.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </nav>
+
+        {/* Sidebar Footer Area Scorecard */}
+        {!sidebarCollapsed && scorecard && (
+          <div className="p-4 m-4 glass-inner rounded-2xl shrink-0">
+            <div className="flex items-center justify-between text-xs mb-1.5">
+              <span style={{ color: "var(--text-secondary)", fontWeight: 600 }}>Civic Quality Index</span>
+              <span className="font-bold font-mono" style={{ color: "var(--accent-1)", fontFamily: "var(--font-title)" }}>
+                {scorecard.civic_quality_score}/100
+              </span>
+            </div>
+            <div className="w-full h-2 rounded-full overflow-hidden mb-2.5" style={{ background: "var(--border-primary)" }}>
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  width: `${scorecard.civic_quality_score}%`,
+                  background: "var(--accent-gradient-vibrant)"
+                }}
+              ></div>
+            </div>
+            <div className="flex items-center justify-between text-[11px]" style={{ color: "var(--text-muted)" }}>
+              <span>⭐ {scorecard.citizen_satisfaction_rating} Rating</span>
+              <span>⚡ {scorecard.sla_compliance_rate}% SLA</span>
+            </div>
+          </div>
+        )}
+      </aside>
+
+      {/* MAIN CONTENT WRAPPER */}
+      <div className="flex-1 flex flex-col relative overflow-hidden min-w-0">
+        {/* TOP NAVBAR (matches user portal navbar) */}
+        <header className="navbar">
+          {/* Left: Department & Jurisdiction details */}
+          <div className="flex items-center gap-3 min-w-0">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="text-xs sm:text-sm font-bold text-white tracking-tight truncate">Nirikshan Command Console</h1>
-                <span className="bg-amber-500/10 text-amber-300 border border-amber-500/30 text-[10px] px-1.5 py-0.2 rounded font-mono font-semibold uppercase shrink-0">
+                <span className="font-bold text-sm truncate" style={{ fontFamily: "var(--font-title)", color: "var(--text-primary)" }}>
+                  {officer.department}
+                </span>
+                <span className="officer-badge-pill shrink-0">
                   {officer.level}
                 </span>
               </div>
-              <p className="text-[10px] sm:text-[11px] text-slate-400 leading-none truncate max-w-xs md:max-w-md mt-0.5">
-                {officer.department}
+              <p className="text-[11px] truncate mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                Jurisdiction: <strong style={{ color: "var(--accent-1)" }}>{officer.jurisdiction?.name}</strong> • {officer.jurisdiction?.type?.toUpperCase()}
               </p>
             </div>
           </div>
-        </div>
 
-        {/* Center: Jurisdiction Badge (Visible on wider screens) */}
-        <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 bg-slate-950/70 border border-slate-800 rounded-xl shrink-0">
-          <span className="text-amber-400 text-xs font-medium">📍 Jurisdiction:</span>
-          <span className="text-xs font-bold text-slate-100 truncate max-w-[200px]">{officer.jurisdiction?.name}</span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono uppercase">
-            {officer.jurisdiction?.type}
-          </span>
-        </div>
-
-        {/* Right: Quick Switcher, Officer Profile & Logout */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Quick Switcher dropdown for instant testing across hierarchy */}
-          <div className="relative shrink-0">
-            <select
-              value={officer.email}
-              onChange={(e) => handleQuickSwitch(e.target.value)}
-              className="bg-slate-950 border border-amber-500/40 hover:border-amber-400 text-amber-300 text-xs rounded-xl px-2.5 py-1.5 focus:outline-none cursor-pointer font-medium max-w-[150px] sm:max-w-[200px] truncate"
-              title="Quickly test any administrative tier"
-            >
-              {HIERARCHY_PRESETS.map((p, i) => (
-                <option key={i} value={p.email} className="bg-slate-900 text-slate-200">
-                  {p.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Officer Avatar / Profile summary */}
-          <div className="hidden md:flex items-center gap-2 pl-2 border-l border-slate-800 shrink-0">
-            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-amber-300 shrink-0">
-              {officer.name.split(" ").map(w => w[0]).join("").slice(0, 2)}
-            </div>
-            <div className="text-left leading-none max-w-[120px] sm:max-w-[150px]">
-              <p className="text-xs font-semibold text-slate-100 truncate">{officer.name}</p>
-              <p className="text-[10px] text-slate-400 mt-0.5 truncate">{officer.badge}</p>
-            </div>
-          </div>
-
-          <button
-            onClick={handleLogout}
-            className="shrink-0 text-xs font-semibold text-rose-300 hover:text-rose-200 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-3 py-1.5 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
-            title="Sign Out"
-          >
-            <span>Exit</span>
-            <span>⎋</span>
-          </button>
-        </div>
-      </header>
-
-      {/* Main Workspace (Sidebar + Dynamic View Area) */}
-      <div className="flex-1 flex overflow-hidden min-h-0 min-w-0">
-        {/* Collapsible Sidebar */}
-        <aside
-          className={`${
-            sidebarCollapsed ? "w-16" : "w-56 xl:w-64"
-          } transition-all duration-300 border-r border-slate-800/80 bg-slate-900/60 backdrop-blur-md flex flex-col justify-between shrink-0 z-20`}
-        >
-          {/* Navigation Links */}
-          <nav className="p-3 space-y-1.5">
-            {[
-              { id: "map", label: "Command Map", icon: "🗺️", count: null },
-              { id: "aqi", label: "AQI Area Score", icon: "🍃", count: null },
-              { id: "complaints", label: "Area Complaints", icon: "📋", count: complaints.length },
-              { id: "funds", label: "Fund Requisitions", icon: "💰", count: funds.length },
-              { id: "memos", label: "Official Mail & Memos", icon: "✉️", count: memos.length },
-              { id: "subordinates", label: "Junior Officers", icon: "👥", count: subordinates.length },
-              { id: "scorecard", label: "Area Scorecard", icon: "📊", count: null }
-            ].map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setActiveSection(item.id)}
-                title={item.label}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all group cursor-pointer ${
-                  activeSection === item.id
-                    ? "bg-gradient-to-r from-amber-500/20 to-orange-500/10 border border-amber-500/40 text-amber-300 shadow-sm"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
-                }`}
+          {/* Right: Quick Switcher, Theme Toggle, Profile & Logout */}
+          <div className="flex items-center gap-3 shrink-0">
+            {/* 1-Click Fast Hierarchy Switcher */}
+            <div className="hidden sm:flex items-center gap-1.5">
+              <span className="text-[11px] font-semibold" style={{ color: "var(--text-muted)" }}>Test Tier:</span>
+              <select
+                value={officer.email}
+                onChange={(e) => handleQuickSwitch(e.target.value)}
+                className="glass-select"
+                style={{
+                  padding: "6px 12px",
+                  fontSize: "0.78rem",
+                  borderRadius: "999px",
+                  maxWidth: "210px"
+                }}
+                title="Instant switch to any administrative tier"
               >
-                <span className="text-base shrink-0">{item.icon}</span>
-                {!sidebarCollapsed && (
-                  <span className="flex-1 text-left truncate">{item.label}</span>
-                )}
-                {!sidebarCollapsed && item.count !== null && (
-                  <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${
-                      activeSection === item.id
-                        ? "bg-amber-500/30 text-amber-200 font-bold"
-                        : "bg-slate-800 text-slate-400"
-                    }`}
-                  >
-                    {item.count}
-                  </span>
-                )}
-              </button>
-            ))}
-          </nav>
-
-          {/* Sidebar Footer Area Card */}
-          {!sidebarCollapsed && scorecard && (
-            <div className="p-3.5 m-3 bg-slate-950/80 border border-slate-800 rounded-xl">
-              <div className="flex items-center justify-between text-[11px] mb-1">
-                <span className="text-slate-400">Civic Quality Index</span>
-                <span className="font-bold text-amber-400 font-mono">
-                  {scorecard.civic_quality_score}/100
-                </span>
-              </div>
-              <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-2">
-                <div
-                  className="h-full bg-gradient-to-r from-amber-500 to-emerald-400 rounded-full"
-                  style={{ width: `${scorecard.civic_quality_score}%` }}
-                ></div>
-              </div>
-              <div className="flex items-center justify-between text-[10px] text-slate-400">
-                <span>⭐ {scorecard.citizen_satisfaction_rating} Rating</span>
-                <span>⚡ {scorecard.sla_compliance_rate}% SLA</span>
-              </div>
+                {HIERARCHY_PRESETS.map((p, i) => (
+                  <option key={i} value={p.email}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
             </div>
-          )}
-        </aside>
 
-        {/* Main Content Pane with min-w-0 for flex containment */}
-        <main className="flex-1 min-w-0 flex flex-col relative overflow-hidden bg-slate-950">
-          {/* ========================================================================= */}
-          {/* VIEW 1: COMMAND MAP */}
-          {/* ========================================================================= */}
-          <div className={`h-full w-full relative ${activeSection === "map" || activeSection === "aqi" ? "flex" : "hidden"}`}>
-            {/* Map Container */}
-            <div ref={mapContainerRef} className="h-full w-full z-0"></div>
+            {/* Theme Toggle Button */}
+            <button 
+              onClick={toggleTheme}
+              className="theme-toggle"
+              title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            >
+              {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
 
-            {/* Map Floating HUD: Mode & Area Controls */}
-            <div className="absolute top-4 left-4 z-10 bg-slate-900/90 border border-slate-800 backdrop-blur-md rounded-xl p-3 shadow-2xl flex flex-col gap-2.5 max-w-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                  <span>🗺️</span>
-                  <span>{officer.jurisdiction?.name}</span>
-                </span>
-                <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">
-                  {officer.level}
-                </span>
+            {/* Officer Profile Card & Logout */}
+            <div className="flex items-center gap-2.5 pl-2" style={{ borderLeft: "1px solid var(--border-primary)" }}>
+              <div 
+                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                style={{
+                  background: "linear-gradient(135deg, var(--accent-1), var(--accent-2))",
+                  color: "#fff"
+                }}
+              >
+                {officer.name.split(" ").map(w => w[0]).join("").slice(0, 2)}
+              </div>
+              <div className="hidden md:block text-left leading-none max-w-[140px]">
+                <p className="text-xs font-bold truncate" style={{ color: "var(--text-primary)" }}>{officer.name}</p>
+                <p className="text-[10px] mt-0.5 truncate" style={{ color: "var(--accent-1)" }}>{officer.badge}</p>
               </div>
 
-              {/* Theme selector */}
-              <div className="flex items-center gap-1 text-xs">
-                <button
+              <button
+                onClick={handleLogout}
+                className="p-2 rounded-xl transition-all cursor-pointer"
+                style={{
+                  background: "var(--red-bg)",
+                  color: "var(--red)",
+                  border: "1px solid var(--red-border)"
+                }}
+                title="Sign Out"
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* WORKSPACE VIEW AREA */}
+        <main className="flex-1 relative overflow-hidden w-full h-full p-0 min-h-0">
+          {/* ========================================================================= */}
+          {/* VIEW 1: COMMAND MAP & AQI VIEW */}
+          {/* ========================================================================= */}
+          <div className={`w-full h-full relative ${activeSection === "map" || activeSection === "aqi" ? "block" : "hidden"}`}>
+            {/* Live Location / Hovered Area Preview HUD (matches user portal HUD) */}
+            <div className="location-preview-hud">
+              {hoveredArea ? (
+                <div className="hud-content">
+                  <div className="hud-indicator" style={{ background: scoreToColor(hoveredArea.score), color: scoreToColor(hoveredArea.score) }}></div>
+                  <div className="hud-text">
+                    <span className="hud-name">{hoveredArea.name}</span>
+                    <span className="hud-sub">
+                      {hoveredArea.level ? hoveredArea.level.replace("-", " ").toUpperCase() : "AREA"} • AQI: <strong>{hoveredArea.score}</strong> ({hoveredArea.status})
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="hud-content">
+                  <span className="hud-icon">🧭</span>
+                  <span className="hud-text-idle">Hover over any boundary or click a complaint marker to inspect</span>
+                </div>
+              )}
+            </div>
+
+            {/* Map Theme & Mode Controls (Floating top-left HUD) */}
+            <div className="map-mode-control" style={{ top: 72 }}>
+              <h4>Map Mode & Visual Layer</h4>
+              <div className="mode-buttons mb-2">
+                <button 
+                  className={`mode-btn ${activeSection === "map" ? "active" : ""}`}
+                  onClick={() => setActiveSection("map")}
+                >
+                  📍 Grievances
+                </button>
+                <button 
+                  className={`mode-btn ${activeSection === "aqi" ? "active" : ""}`}
+                  onClick={() => setActiveSection("aqi")}
+                >
+                  🍃 AQI Quality
+                </button>
+              </div>
+              <div className="flex items-center gap-1.5 pt-1.5" style={{ borderTop: "1px solid var(--border-primary)" }}>
+                <button 
+                  className={`sidebar-theme-btn ${mapTheme === "dark" ? "active" : ""}`}
                   onClick={() => setMapTheme("dark")}
-                  className={`flex-1 py-1 px-2 rounded text-[11px] font-medium transition-colors cursor-pointer ${
-                    mapTheme === "dark" ? "bg-amber-500 text-slate-950 font-bold" : "bg-slate-800 text-slate-400 hover:text-white"
-                  }`}
                 >
                   Dark
                 </button>
-                <button
+                <button 
+                  className={`sidebar-theme-btn ${mapTheme === "street" ? "active" : ""}`}
                   onClick={() => setMapTheme("street")}
-                  className={`flex-1 py-1 px-2 rounded text-[11px] font-medium transition-colors cursor-pointer ${
-                    mapTheme === "street" ? "bg-amber-500 text-slate-950 font-bold" : "bg-slate-800 text-slate-400 hover:text-white"
-                  }`}
                 >
                   Street
                 </button>
-                <button
+                <button 
+                  className={`sidebar-theme-btn ${mapTheme === "satellite" ? "active" : ""}`}
                   onClick={() => setMapTheme("satellite")}
-                  className={`flex-1 py-1 px-2 rounded text-[11px] font-medium transition-colors cursor-pointer ${
-                    mapTheme === "satellite" ? "bg-amber-500 text-slate-950 font-bold" : "bg-slate-800 text-slate-400 hover:text-white"
-                  }`}
                 >
                   Satellite
                 </button>
               </div>
-
-              {/* Quick statistics badge */}
-              <div className="text-[11px] text-slate-400 pt-1 border-t border-slate-800 flex justify-between">
-                <span>Active Grievances:</span>
-                <span className="font-bold text-slate-200 font-mono">{complaints.length}</span>
-              </div>
             </div>
 
-            {/* Hovered Area HUD for AQI Mode */}
-            {activeSection === "aqi" && hoveredArea && (
-              <div className="absolute top-4 right-4 z-10 w-64 bg-slate-900/95 border border-slate-800 backdrop-blur-xl rounded-xl p-3 shadow-2xl animate-in slide-in-from-right duration-200">
-                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">{hoveredArea.level} LEVEL</div>
-                <div className="font-bold text-white text-sm mb-2">{hoveredArea.name}</div>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="text-2xl font-bold font-mono" style={{ color: scoreToColor(hoveredArea.score) }}>
-                    {hoveredArea.score}
-                  </div>
-                  <div className="text-xs px-2 py-1 rounded bg-slate-800 border" style={{ borderColor: scoreToColor(hoveredArea.score), color: scoreToColor(hoveredArea.score) }}>
-                    {hoveredArea.status}
-                  </div>
+            {/* Stats Row (matches user portal stats-row) */}
+            <div className="stats-row">
+              <article>
+                <strong>{complaints.length}</strong>
+                <span>Total Grievances</span>
+              </article>
+              <article>
+                <strong style={{ color: "var(--yellow)" }}>{pendingCount}</strong>
+                <span>In Progress</span>
+              </article>
+              <article>
+                <strong style={{ color: "var(--red)" }}>{escalatedCount}</strong>
+                <span>Escalated</span>
+              </article>
+              <article>
+                <strong style={{ color: "var(--green)" }}>{resolvedCount}</strong>
+                <span>Resolved</span>
+              </article>
+            </div>
+
+            {/* Map Legend Card for AQI Mode */}
+            {activeSection === "aqi" && !selectedComplaint && (
+              <div className="legend-card">
+                <h3>Area Quality Index (AQI)</h3>
+                <p>Jurisdiction Heat Gradient</p>
+                <div className="legend-scale">
+                  <div className="scale-item"><span className="swatch excellent"></span><strong>81-100</strong> Well-maintained</div>
+                  <div className="scale-item"><span className="swatch good"></span><strong>61-80</strong> Acceptable</div>
+                  <div className="scale-item"><span className="swatch moderate"></span><strong>31-60</strong> Needs Attention</div>
+                  <div className="scale-item"><span className="swatch critical"></span><strong>0-30</strong> Critical Concern</div>
                 </div>
-                {hoveredArea.authority && (
-                  <div className="text-[10px] text-slate-400">Auth: <span className="text-slate-300">{hoveredArea.authority}</span></div>
-                )}
               </div>
             )}
 
-            {/* Quick Action Drawer when complaint is selected on map */}
+            {/* Map Container */}
+            <div ref={mapContainerRef} className="absolute inset-0 z-0"></div>
+
+            {/* Slide-in Complaint Drawer */}
             {selectedComplaint && (
-              <div className="absolute top-4 right-4 z-10 w-96 max-w-[calc(100vw-2rem)] bg-slate-900/95 border border-slate-800 backdrop-blur-xl rounded-2xl p-5 shadow-2xl animate-in slide-in-from-right duration-200">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">{ISSUE_ICONS[selectedComplaint.issue_type] || "📍"}</span>
+              <div 
+                className="officer-drawer absolute top-4 right-4 z-30 w-96 max-w-[calc(100vw-2rem)] p-5 shadow-2xl animate-in slide-in-from-right duration-200"
+              >
+                <div className="flex items-center justify-between pb-3" style={{ borderBottom: "1px solid var(--border-primary)" }}>
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-2xl">{ISSUE_ICONS[selectedComplaint.issue_type] || "📍"}</span>
                     <div>
-                      <h4 className="text-sm font-bold text-white leading-tight">
+                      <h4 className="text-sm font-bold leading-tight" style={{ fontFamily: "var(--font-title)", color: "var(--text-primary)" }}>
                         {selectedComplaint.issue_type}
                       </h4>
-                      <p className="text-[11px] text-cyan-400">{selectedComplaint.place_name}</p>
+                      <p className="text-xs" style={{ color: "var(--accent-1)" }}>{selectedComplaint.place_name}</p>
                     </div>
                   </div>
                   <button
                     onClick={() => setSelectedComplaint(null)}
-                    className="text-slate-400 hover:text-white text-sm p-1 cursor-pointer"
+                    className="p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                    style={{ color: "var(--text-muted)" }}
                   >
-                    ✕
+                    <X size={16} />
                   </button>
                 </div>
 
-                <div className="py-3 space-y-2 text-xs">
-                  <p className="text-slate-300 leading-relaxed">{selectedComplaint.description}</p>
-                  <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
-                    <div className="bg-slate-950/60 p-2 rounded-lg border border-slate-800/80">
-                      <span className="text-slate-500 block text-[10px]">CURRENT STATUS</span>
-                      <span className="font-semibold text-amber-300">{selectedComplaint.status}</span>
+                <div className="py-3.5 space-y-3 text-xs">
+                  <p style={{ color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                    {selectedComplaint.description}
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div className="p-2.5 rounded-xl glass-inner">
+                      <span className="block text-[10px] uppercase font-bold" style={{ color: "var(--text-muted)" }}>CURRENT STATUS</span>
+                      <span className="font-bold" style={{ color: "var(--accent-1)" }}>{selectedComplaint.status}</span>
                     </div>
-                    <div className="bg-slate-950/60 p-2 rounded-lg border border-slate-800/80">
-                      <span className="text-slate-500 block text-[10px]">TRUST SCORE</span>
-                      <span className="font-semibold text-emerald-400">{selectedComplaint.user_trust_score || 80} / 100</span>
+                    <div className="p-2.5 rounded-xl glass-inner">
+                      <span className="block text-[10px] uppercase font-bold" style={{ color: "var(--text-muted)" }}>TRUST SCORE</span>
+                      <span className="font-bold font-mono" style={{ color: "var(--green)" }}>{selectedComplaint.user_trust_score || 80} / 100</span>
                     </div>
                   </div>
 
                   {selectedComplaint.escalated && (
-                    <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-[11px] flex items-center gap-1.5">
-                      <span>⚠️</span>
-                      <span>Escalated Grievance (Priority Resolution Required)</span>
+                    <div 
+                      className="p-2.5 rounded-xl text-[11px] flex items-center gap-2 font-medium"
+                      style={{ background: "var(--red-bg)", border: "1px solid var(--red-border)", color: "var(--red)" }}
+                    >
+                      <AlertTriangle size={14} />
+                      <span>Escalated Grievance (Priority Resolution Mandate)</span>
                     </div>
                   )}
 
                   {selectedComplaint.linked_funds?.length > 0 && (
-                    <div className="p-2.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-[11px]">
+                    <div 
+                      className="p-2.5 rounded-xl text-[11px] font-mono font-medium"
+                      style={{ background: "rgba(var(--accent-1-rgb), 0.1)", border: "1px solid rgba(var(--accent-1-rgb), 0.25)", color: "var(--accent-1)" }}
+                    >
                       💰 Linked Budget: ₹{selectedComplaint.linked_funds[0].amount?.toLocaleString("en-IN")} ({selectedComplaint.linked_funds[0].status})
                     </div>
                   )}
                 </div>
 
-                {/* Primary Action Buttons */}
-                <div className="pt-2 border-t border-slate-800 flex flex-col gap-2">
+                <div className="pt-3 border-t flex flex-col gap-2" style={{ borderColor: "var(--border-primary)" }}>
                   <div className="flex gap-2">
                     <button
                       onClick={() => {
@@ -1126,15 +1233,15 @@ export default function OfficerDashboardView() {
                         setActionStatus(selectedComplaint.status === "In Progress" ? "Resolved" : "In Progress");
                         setShowActionModal(true);
                       }}
-                      className="flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md transition-colors cursor-pointer"
+                      className="btn-primary flex-1 py-2 text-xs"
                     >
-                      Update Status
+                      Take Action
                     </button>
                     <button
                       onClick={() => setShowForwardModal(true)}
-                      className="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+                      className="btn-secondary px-3.5 py-2 text-xs flex items-center justify-center gap-1"
                     >
-                      Forward ↗
+                      Forward <ArrowUpRight size={14} />
                     </button>
                   </div>
                   <button
@@ -1143,10 +1250,11 @@ export default function OfficerDashboardView() {
                       setFundTitle(`Emergency Restoration for ${selectedComplaint.issue_type} at ${selectedComplaint.place_name}`);
                       setShowFundModal(true);
                     }}
-                    className="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="btn-secondary w-full py-2 text-xs flex items-center justify-center gap-1.5"
+                    style={{ borderColor: "rgba(var(--accent-1-rgb), 0.3)", color: "var(--accent-1)" }}
                   >
                     <span>💰</span>
-                    <span>Requisition Budget for this Complaint</span>
+                    <span>Requisition Budget for this Grievance</span>
                   </button>
                 </div>
               </div>
@@ -1157,21 +1265,20 @@ export default function OfficerDashboardView() {
           {/* VIEW 2: COMPLAINTS & GRIEVANCES */}
           {/* ========================================================================= */}
           {activeSection === "complaints" && (
-            <div className="flex-1 min-w-0 flex flex-col p-3.5 md:p-4 lg:p-5 h-full overflow-hidden space-y-3">
-              {/* Header & Controls */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-800 shrink-0">
+            <div className="flex-1 min-w-0 flex flex-col p-4 sm:p-6 h-full overflow-hidden space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 shrink-0" style={{ borderBottom: "1px solid var(--border-primary)" }}>
                 <div>
-                  <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                  <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2" style={{ fontFamily: "var(--font-title)", color: "var(--text-primary)" }}>
                     <span>📋</span>
-                    <span>Area Grievances & Service Complaints</span>
+                    <span>Area Grievances & Municipal Complaints</span>
                   </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Complaints recorded in {officer.jurisdiction?.name} under your administrative jurisdiction.
+                  <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                    Official complaints recorded within {officer.jurisdiction?.name} under your administrative jurisdiction.
                   </p>
                 </div>
 
-                {/* Segmented Filter Control Bar */}
-                <div className="flex items-center gap-1 bg-slate-900/90 border border-slate-800 p-1 rounded-xl shrink-0 overflow-x-auto max-w-full">
+                {/* Filter buttons */}
+                <div className="flex items-center gap-1.5 glass-inner p-1 rounded-2xl shrink-0 overflow-x-auto max-w-full">
                   {[
                     { id: "all", label: "All" },
                     { id: "active", label: "Active" },
@@ -1182,11 +1289,7 @@ export default function OfficerDashboardView() {
                     <button
                       key={f.id}
                       onClick={() => setComplaintFilter(f.id)}
-                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
-                        complaintFilter === f.id
-                          ? "bg-amber-500 text-slate-950 shadow-sm shadow-amber-500/20 font-bold"
-                          : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
-                      }`}
+                      className={`sidebar-theme-btn ${complaintFilter === f.id ? "active" : ""}`}
                     >
                       {f.label}
                     </button>
@@ -1196,95 +1299,83 @@ export default function OfficerDashboardView() {
 
               {/* Search Bar */}
               <div className="relative w-full max-w-md shrink-0">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 text-xs">
-                  🔍
-                </div>
                 <input
                   type="text"
                   placeholder="Search grievance ID, road name, category..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-8 pr-3.5 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition-colors"
+                  className="glass-input"
+                  style={{ borderRadius: "999px", paddingLeft: "36px" }}
                 />
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
               </div>
 
-              {/* Complaints Table Container with internal viewport scroll */}
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden shadow-xl flex-1 flex flex-col min-h-0">
+              {/* Table Container */}
+              <div className="glass-panel overflow-hidden flex-1 flex flex-col min-h-0">
                 <div className="overflow-auto flex-1">
                   <table className="w-full text-left text-xs border-collapse">
-                    <thead className="sticky top-0 z-10">
-                      <tr className="bg-slate-900 text-slate-300 uppercase tracking-wider text-[11px] font-semibold border-b border-slate-800">
-                        <th className="py-2.5 px-2.5 sm:px-3 whitespace-nowrap w-36 sm:w-40">Grievance & Type</th>
-                        <th className="py-2.5 px-2.5 sm:px-3 min-w-[130px] max-w-[220px]">Location & Description</th>
-                        <th className="py-2.5 px-2.5 sm:px-3 whitespace-nowrap w-24 sm:w-28">Status</th>
-                        <th className="py-2.5 px-2.5 sm:px-3 whitespace-nowrap w-20 sm:w-24">Trust & SLA</th>
-                        <th className="py-2.5 px-2.5 sm:px-3 whitespace-nowrap w-20 sm:w-24">Linked Budget</th>
-                        <th className="py-2.5 px-2.5 sm:px-3 text-right whitespace-nowrap w-32 sm:w-36 pr-3 sm:pr-4">Actions</th>
+                    <thead className="sticky top-0 z-10" style={{ background: "var(--glass-bg-strong)", borderBottom: "1px solid var(--border-primary)" }}>
+                      <tr className="uppercase tracking-wider text-[11px] font-semibold" style={{ color: "var(--text-secondary)" }}>
+                        <th className="py-3 px-4 whitespace-nowrap">Grievance & Type</th>
+                        <th className="py-3 px-4 min-w-[150px]">Location & Details</th>
+                        <th className="py-3 px-4 whitespace-nowrap">Status</th>
+                        <th className="py-3 px-4 whitespace-nowrap">Citizen Trust & SLA</th>
+                        <th className="py-3 px-4 whitespace-nowrap">Linked Budget</th>
+                        <th className="py-3 px-4 text-right whitespace-nowrap pr-5">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/70 text-slate-200">
+                    <tbody className="divide-y" style={{ borderColor: "var(--border-subtle)" }}>
                       {filteredComplaints.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="py-12 text-center text-slate-500">
-                            No complaints match the current criteria in this jurisdiction.
+                          <td colSpan={6} className="py-14 text-center text-sm" style={{ color: "var(--text-muted)" }}>
+                            No complaints match the selected filter in this jurisdiction.
                           </td>
                         </tr>
                       ) : (
                         filteredComplaints.map((c, i) => (
-                          <tr key={i} className="hover:bg-slate-850/60 transition-colors">
-                            <td className="py-2 px-2.5 sm:px-3 whitespace-nowrap w-36 sm:w-40">
-                              <div className="flex items-center gap-2">
+                          <tr key={i} className="transition-colors" style={{ "&:hover": { background: "var(--glass-inner-hover)" } }}>
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              <div className="flex items-center gap-2.5">
                                 <span className="text-xl shrink-0">{ISSUE_ICONS[c.issue_type] || "📍"}</span>
-                                <div className="min-w-0">
-                                  <span className="font-semibold text-slate-100 block truncate">{c.issue_type}</span>
-                                  <span className="text-[10px] font-mono text-slate-400 block truncate max-w-[95px] sm:max-w-[115px]">{c.complaint_id}</span>
+                                <div>
+                                  <span className="font-bold block" style={{ color: "var(--text-primary)" }}>{c.issue_type}</span>
+                                  <span className="text-[10px] font-mono block" style={{ color: "var(--text-muted)" }}>{c.complaint_id}</span>
                                 </div>
                               </div>
                             </td>
-                            <td className="py-2 px-2.5 sm:px-3 min-w-[130px] max-w-[220px]">
-                              <span className="font-semibold text-slate-100 block truncate" title={c.street ? `${c.street}, ${c.place_name}` : c.place_name}>
+                            <td className="py-3 px-4 min-w-[150px]">
+                              <span className="font-semibold block" style={{ color: "var(--text-primary)" }}>
                                 {c.street ? `${c.street}, ${c.place_name || "Location"}` : c.place_name || "Location"}
                               </span>
-                              {c.address && (
-                                <span className="text-[10px] font-mono text-slate-500 block truncate mt-0.5" title={c.address}>
-                                  {c.address}
-                                </span>
-                              )}
-                              <span className="text-[11px] text-slate-400 block truncate mt-0.5">{c.description}</span>
+                              <span className="text-[11px] block mt-0.5 truncate max-w-sm" style={{ color: "var(--text-secondary)" }}>
+                                {c.description}
+                              </span>
                             </td>
-                            <td className="py-2 px-2.5 sm:px-3 whitespace-nowrap w-24 sm:w-28">
-                              <span
-                                className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${
-                                  ["Resolved", "Closed"].includes(c.status)
-                                    ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
-                                    : c.escalated
-                                    ? "bg-rose-500/15 border-rose-500/40 text-rose-300 animate-pulse"
-                                    : "bg-amber-500/15 border-amber-500/40 text-amber-300"
-                                }`}
-                              >
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              <span className={`badge-status ${["Resolved", "Closed"].includes(c.status) ? "resolved" : c.escalated ? "escalated" : "inprogress"}`}>
                                 {c.status}
                               </span>
                               {c.scheduled_inspection && (
-                                <span className="block text-[10px] text-cyan-400 mt-0.5 font-medium">
+                                <span className="block text-[10px] mt-1 font-semibold" style={{ color: "var(--accent-1)" }}>
                                   📅 {c.scheduled_inspection}
                                 </span>
                               )}
                             </td>
-                            <td className="py-2 px-2.5 sm:px-3 whitespace-nowrap font-mono w-20 sm:w-24">
-                              <span className="text-emerald-400 font-semibold block">{c.user_trust_score || 80} Trust</span>
-                              <span className="text-[10px] text-slate-400">Open {c.days_open || 1}d</span>
+                            <td className="py-3 px-4 whitespace-nowrap font-mono">
+                              <span className="font-bold block" style={{ color: "var(--green)" }}>{c.user_trust_score || 80} Trust</span>
+                              <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>Open {c.days_open || 1}d</span>
                             </td>
-                            <td className="py-2 px-2.5 sm:px-3 whitespace-nowrap w-20 sm:w-24">
+                            <td className="py-3 px-4 whitespace-nowrap">
                               {c.linked_funds?.length > 0 ? (
-                                <span className="text-amber-300 font-bold font-mono text-[11px] bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded inline-block">
+                                <span className="officer-badge-pill">
                                   ₹{c.linked_funds[0].amount?.toLocaleString("en-IN")}
                                 </span>
                               ) : (
-                                <span className="text-slate-500 text-[11px]">None</span>
+                                <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>None</span>
                               )}
                             </td>
-                            <td className="py-2 px-2.5 sm:px-3 text-right whitespace-nowrap w-32 sm:w-36 pr-3 sm:pr-4">
-                              <div className="flex items-center justify-end gap-1.5">
+                            <td className="py-3 px-4 text-right whitespace-nowrap pr-5">
+                              <div className="flex items-center justify-end gap-2">
                                 <button
                                   onClick={() => {
                                     setSelectedComplaint(c);
@@ -1292,7 +1383,8 @@ export default function OfficerDashboardView() {
                                     setActionStatus("In Progress");
                                     setShowActionModal(true);
                                   }}
-                                  className="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 font-semibold text-xs border border-amber-500/30 transition-colors inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                                  className="btn-primary py-1 px-3 text-xs"
+                                  style={{ width: "auto" }}
                                 >
                                   Take Action
                                 </button>
@@ -1301,8 +1393,9 @@ export default function OfficerDashboardView() {
                                     setSelectedComplaint(c);
                                     setShowForwardModal(true);
                                   }}
-                                  className="p-1 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 transition-colors cursor-pointer shrink-0"
-                                  title="Forward to Senior Authority"
+                                  className="btn-secondary py-1 px-2.5 text-xs"
+                                  style={{ width: "auto" }}
+                                  title="Forward to Senior Tier"
                                 >
                                   ↗
                                 </button>
@@ -1322,15 +1415,15 @@ export default function OfficerDashboardView() {
           {/* VIEW 3: FUND REQUISITIONS & BUDGETS */}
           {/* ========================================================================= */}
           {activeSection === "funds" && (
-            <div className="flex-1 min-w-0 flex flex-col p-4 lg:p-6 overflow-y-auto space-y-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-800 shrink-0">
+            <div className="flex-1 min-w-0 flex flex-col p-4 sm:p-6 overflow-y-auto space-y-5">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 shrink-0" style={{ borderBottom: "1px solid var(--border-primary)" }}>
                 <div>
-                  <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                  <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2" style={{ fontFamily: "var(--font-title)", color: "var(--text-primary)" }}>
                     <span>💰</span>
                     <span>Civic Fund Requisitions & Maintenance Budgets</span>
                   </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Submit and review financial budget allocations for emergency infrastructure repairs.
+                  <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                    Manage financial allocations for emergency infrastructure restoration and contractor tenders.
                   </p>
                 </div>
 
@@ -1340,84 +1433,76 @@ export default function OfficerDashboardView() {
                     setFundTitle("");
                     setShowFundModal(true);
                   }}
-                  className="shrink-0 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                  className="btn-primary flex items-center gap-1.5 py-2 px-4 text-xs font-bold"
+                  style={{ width: "auto" }}
                 >
-                  <span>+</span>
+                  <Plus size={16} />
                   <span>Raise New Fund Request</span>
                 </button>
               </div>
 
               {/* Fund Requisition Cards Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {funds.length === 0 ? (
-                  <div className="col-span-full py-12 text-center text-slate-500 bg-slate-900/40 rounded-2xl border border-slate-800">
-                    No active fund requests in this jurisdiction.
+                  <div className="col-span-full py-14 text-center glass-panel rounded-2xl" style={{ color: "var(--text-muted)" }}>
+                    No active fund requisitions recorded for this jurisdiction.
                   </div>
                 ) : (
                   funds.map((f, i) => (
-                    <div key={i} className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800/90 flex flex-col justify-between gap-4 shadow-xl hover:border-slate-700 transition-all">
+                    <div key={i} className="officer-card p-5 flex flex-col justify-between gap-3">
                       <div>
-                        <div className="flex items-center justify-between gap-2 mb-2.5">
-                          <span className="font-mono text-[11px] font-semibold text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
-                            {f.id}
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full" style={{ background: "var(--glass-inner-bg)", color: "var(--text-muted)", border: "1px solid var(--border-subtle)" }}>
+                            {f.fund_id}
                           </span>
-                          <span
-                            className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
-                              f.status === "Approved" || f.status === "Disbursed"
-                                ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
-                                : f.status === "Rejected"
-                                ? "bg-rose-500/15 border-rose-500/40 text-rose-300"
-                                : "bg-amber-500/15 border-amber-500/40 text-amber-300"
-                            }`}
-                          >
+                          <span className={`badge-status ${f.status === "Approved" ? "resolved" : "inprogress"}`}>
                             {f.status}
                           </span>
                         </div>
 
-                        <h4 className="text-sm font-bold text-slate-100 mb-1 leading-snug">{f.title}</h4>
-                        <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed mb-3">{f.justification}</p>
-
-                        <div className="space-y-1.5 text-xs border-t border-slate-800/80 pt-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-slate-400 text-[11px]">Amount Requisitioned:</span>
-                            <strong className="text-amber-400 text-sm font-mono font-bold">
+                        <h4 className="text-sm font-bold leading-snug" style={{ fontFamily: "var(--font-title)", color: "var(--text-primary)" }}>
+                          {f.title}
+                        </h4>
+                        
+                        <div className="mt-3 p-3 rounded-xl glass-inner space-y-1 text-xs">
+                          <div className="flex justify-between items-center">
+                            <span style={{ color: "var(--text-secondary)" }}>Amount:</span>
+                            <span className="text-base font-bold font-mono" style={{ color: "var(--accent-1)" }}>
                               ₹{Number(f.amount).toLocaleString("en-IN")}
-                            </strong>
+                            </span>
                           </div>
-                          <div className="flex items-center justify-between text-[11px]">
-                            <span className="text-slate-400">Budget Head:</span>
-                            <span className="text-slate-300 font-medium truncate max-w-[180px]">{f.budget_head}</span>
+                          <div className="flex justify-between text-[11px]">
+                            <span style={{ color: "var(--text-muted)" }}>Budget Head:</span>
+                            <span className="font-medium truncate max-w-[170px]" style={{ color: "var(--text-primary)" }}>{f.budget_head}</span>
                           </div>
-                          <div className="flex items-center justify-between text-[11px]">
-                            <span className="text-slate-400">Initiated By:</span>
-                            <span className="text-slate-300 font-medium truncate max-w-[180px]">{f.officer_name}</span>
+                          <div className="flex justify-between text-[11px]">
+                            <span style={{ color: "var(--text-muted)" }}>Tender / Ref:</span>
+                            <span className="font-mono text-[10px]" style={{ color: "var(--text-secondary)" }}>{f.contractor_tender_ref || "Direct Execution"}</span>
                           </div>
-                          {f.approved_by && (
-                            <div className="flex items-center justify-between text-[11px] text-emerald-400 pt-0.5">
-                              <span className="text-emerald-400/80">Approved By:</span>
-                              <span className="font-semibold truncate max-w-[180px]">{f.approved_by}</span>
-                            </div>
-                          )}
                         </div>
+
+                        {f.justification && (
+                          <p className="text-[11px] mt-2.5 line-clamp-2" style={{ color: "var(--text-secondary)", lineHeight: 1.4 }}>
+                            {f.justification}
+                          </p>
+                        )}
                       </div>
 
-                      {/* Senior Officer Approval Actions */}
-                      {["national", "state", "district", "zone"].includes(officer.level) && f.status === "Under Review" && (
-                        <div className="pt-3 border-t border-slate-800 flex gap-2">
-                          <button
-                            onClick={() => handleReviewFund(f.id, "approve")}
-                            className="flex-1 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-colors cursor-pointer"
-                          >
-                            Approve Budget
-                          </button>
-                          <button
-                            onClick={() => handleReviewFund(f.id, "reject")}
-                            className="py-2 px-4 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 text-xs font-semibold transition-colors cursor-pointer"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      )}
+                      <div className="pt-3 flex gap-2 border-t" style={{ borderColor: "var(--border-subtle)" }}>
+                        <button
+                          onClick={() => handleReviewFund(f.fund_id, "approved")}
+                          className="btn-primary py-2 text-xs flex-1"
+                        >
+                          Approve Allocation
+                        </button>
+                        <button
+                          onClick={() => handleReviewFund(f.fund_id, "rejected")}
+                          className="btn-secondary py-2 text-xs px-3"
+                          style={{ color: "var(--red)", borderColor: "var(--red-border)" }}
+                        >
+                          Audit Hold
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}
@@ -1426,66 +1511,73 @@ export default function OfficerDashboardView() {
           )}
 
           {/* ========================================================================= */}
-          {/* VIEW 4: OFFICIAL INTER-DEPARTMENT MAIL & MEMOS */}
+          {/* VIEW 4: OFFICIAL MAIL & MEMOS */}
           {/* ========================================================================= */}
           {activeSection === "memos" && (
-            <div className="flex-1 min-w-0 flex flex-col p-4 lg:p-6 overflow-y-auto space-y-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-800 shrink-0">
+            <div className="flex-1 min-w-0 flex flex-col p-4 sm:p-6 overflow-y-auto space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 shrink-0" style={{ borderBottom: "1px solid var(--border-primary)" }}>
                 <div>
-                  <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                  <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2" style={{ fontFamily: "var(--font-title)", color: "var(--text-primary)" }}>
                     <span>✉️</span>
-                    <span>Inter-Departmental Mail & Official Notices</span>
+                    <span>Official Inter-Department Communications</span>
                   </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Issue direct memos and coordinate joint actions with Jal Kal, PWD, DISCOM, Police, and Development Authorities.
+                  <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                    Dispatches, notices, and memos between Nagar Nigam, Jal Kal, PWD, and Police wings.
                   </p>
                 </div>
 
                 <button
                   onClick={() => setShowMemoModal(true)}
-                  className="shrink-0 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                  className="btn-primary flex items-center gap-1.5 py-2 px-4 text-xs font-bold"
+                  style={{ width: "auto" }}
                 >
-                  <span>✉️</span>
-                  <span>Dispatch Official Memo</span>
+                  <Mail size={16} />
+                  <span>Dispatch New Memo</span>
                 </button>
               </div>
 
               {/* Memos List */}
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {memos.length === 0 ? (
-                  <div className="py-12 text-center text-slate-500 bg-slate-900/40 rounded-2xl border border-slate-800">
-                    No official letters or memos recorded in this dispatch ledger.
+                  <div className="col-span-full py-14 text-center glass-panel rounded-2xl" style={{ color: "var(--text-muted)" }}>
+                    No official memos in your administrative mailbox.
                   </div>
                 ) : (
                   memos.map((m, i) => (
-                    <div key={i} className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3 shadow-xl hover:border-slate-700 transition-all">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-xs text-amber-400 font-bold bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded">
-                            {m.memo_no}
+                    <div key={i} className="officer-card p-5 flex flex-col justify-between gap-3">
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span className="officer-badge-pill">
+                            {m.priority || "Urgent"}
                           </span>
-                          <span className="text-slate-500">•</span>
-                          <span className="text-xs text-slate-200 font-medium">To: <strong className="text-white">{m.recipient_authority_name}</strong></span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/40 text-cyan-300 font-semibold">
-                            {m.priority}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {new Date(m.sent_at).toLocaleDateString("en-IN")}
+                          <span className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>
+                            {new Date(m.created_at || Date.now()).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}
                           </span>
                         </div>
+
+                        <h4 className="text-sm font-bold leading-snug" style={{ fontFamily: "var(--font-title)", color: "var(--text-primary)" }}>
+                          {m.subject}
+                        </h4>
+
+                        <div className="mt-2.5 p-3 rounded-xl glass-inner space-y-1 text-xs">
+                          <div className="flex justify-between">
+                            <span style={{ color: "var(--text-muted)" }}>From:</span>
+                            <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{m.sender_name || "Administrative Head"}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span style={{ color: "var(--text-muted)" }}>To:</span>
+                            <span className="font-semibold" style={{ color: "var(--accent-1)" }}>{m.recipient_authority_name || "Jal Sansthan"}</span>
+                          </div>
+                        </div>
+
+                        <p className="text-xs mt-3 line-clamp-3" style={{ color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                          {m.body}
+                        </p>
                       </div>
 
-                      <h4 className="text-sm font-bold text-white leading-snug">{m.subject}</h4>
-                      <p className="text-xs text-slate-300 leading-relaxed">{m.body}</p>
-
-                      <div className="pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
-                        <span>Issued by: <strong className="text-slate-300">{m.sender_name}</strong> ({m.sender_dept})</span>
-                        <span className="text-emerald-400 font-medium flex items-center gap-1">
-                          <span>✓</span>
-                          <span>Dispatched & Audited</span>
-                        </span>
+                      <div className="pt-3 flex justify-between items-center text-[11px] border-t" style={{ borderColor: "var(--border-subtle)", color: "var(--text-muted)" }}>
+                        <span>Reference: {m.memo_id || "NIC-MEMO-2026"}</span>
+                        <span className="font-semibold" style={{ color: "var(--green)" }}>Delivered ✓</span>
                       </div>
                     </div>
                   ))
@@ -1495,97 +1587,94 @@ export default function OfficerDashboardView() {
           )}
 
           {/* ========================================================================= */}
-          {/* VIEW 5: JUNIOR OFFICERS & HIERARCHY MANAGEMENT */}
+          {/* VIEW 5: SUBORDINATE OFFICERS & OVERSIGHT */}
           {/* ========================================================================= */}
           {activeSection === "subordinates" && (
-            <div className="flex-1 min-w-0 flex flex-col p-4 lg:p-6 overflow-y-auto space-y-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-800 shrink-0">
+            <div className="flex-1 min-w-0 flex flex-col p-4 sm:p-6 overflow-y-auto space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 shrink-0" style={{ borderBottom: "1px solid var(--border-primary)" }}>
                 <div>
-                  <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                  <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2" style={{ fontFamily: "var(--font-title)", color: "var(--text-primary)" }}>
                     <span>👥</span>
                     <span>Subordinate Officers & Administrative Oversight</span>
                   </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Monitor handles, assign field tasks, and issue ward transfer orders to junior officers under your authority.
+                  <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                    Monitor personnel handles, issue directives, and reallocate ward jurisdictions.
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={() => {
                       if (subordinates.length > 0) setTaskTargetSubordinate(subordinates[0].id);
                       setShowTaskModal(true);
                     }}
-                    className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md transition-all flex items-center gap-1 cursor-pointer"
+                    className="btn-primary py-2 px-3.5 text-xs font-bold"
+                    style={{ width: "auto" }}
                   >
-                    <span>+</span>
-                    <span>Assign Direct Directive</span>
+                    + Assign Directive
                   </button>
                   <button
                     onClick={() => {
                       if (subordinates.length > 0) setTransferOfficerId(subordinates[0].id);
                       setShowTransferModal(true);
                     }}
-                    className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs transition-all flex items-center gap-1 cursor-pointer"
+                    className="btn-secondary py-2 px-3.5 text-xs font-semibold"
+                    style={{ width: "auto" }}
                   >
-                    <span>🔄</span>
-                    <span>Transfer Officer</span>
+                    🔄 Transfer Officer
                   </button>
                 </div>
               </div>
 
               {/* Subordinates Directory Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {subordinates.length === 0 ? (
-                  <div className="col-span-full py-12 text-center text-slate-500 bg-slate-900/40 rounded-2xl border border-slate-800">
-                    You are at the field frontline level. There are no junior officers under your administrative tier.
+                  <div className="col-span-full py-14 text-center glass-panel rounded-2xl" style={{ color: "var(--text-muted)" }}>
+                    You are at the field frontline tier. There are no junior officers under your administrative command.
                   </div>
                 ) : (
                   subordinates.map((sub, i) => (
-                    <div key={i} className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 flex flex-col justify-between gap-3 shadow-xl hover:border-slate-700 transition-all">
+                    <div key={i} className="officer-card p-5 flex flex-col justify-between gap-3">
                       <div>
                         <div className="flex items-center justify-between gap-2 mb-2">
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
+                          <span className="officer-badge-pill">
                             {sub.badge}
                           </span>
-                          <span className="text-xs text-amber-400 font-mono font-bold flex items-center gap-1">
-                            <span>⭐</span>
-                            <span>{sub.workload?.rating}</span>
+                          <span className="text-xs font-mono font-bold" style={{ color: "var(--yellow)" }}>
+                            ⭐ {sub.workload?.rating}
                           </span>
                         </div>
 
-                        <h4 className="text-sm font-bold text-white leading-snug">{sub.name}</h4>
-                        <p className="text-xs text-slate-400 leading-snug mt-0.5">{sub.designation}</p>
+                        <h4 className="text-sm font-bold" style={{ fontFamily: "var(--font-title)", color: "var(--text-primary)" }}>
+                          {sub.name}
+                        </h4>
+                        <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                          {sub.designation}
+                        </p>
 
-                        <div className="mt-3 pt-2.5 border-t border-slate-800/80 space-y-1.5 text-xs">
+                        <div className="mt-3 p-3 rounded-xl glass-inner space-y-1.5 text-xs">
                           <div className="flex justify-between">
-                            <span className="text-slate-400">Assigned Ward:</span>
-                            <span className="font-semibold text-cyan-300 truncate max-w-[160px]">
-                              {sub.jurisdiction?.name}
-                            </span>
+                            <span style={{ color: "var(--text-muted)" }}>Assigned Ward:</span>
+                            <span className="font-semibold truncate max-w-[150px]" style={{ color: "var(--accent-1)" }}>{sub.jurisdiction?.name}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-slate-400">Active Grievances:</span>
-                            <span className="font-mono text-slate-200 font-semibold">{sub.workload?.open_complaints} open</span>
+                            <span style={{ color: "var(--text-muted)" }}>Open Grievances:</span>
+                            <span className="font-mono font-semibold" style={{ color: "var(--text-primary)" }}>{sub.workload?.open_complaints} open</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-slate-400">Resolution Rate:</span>
-                            <span className="font-mono text-emerald-400 font-semibold">{sub.workload?.resolution_rate}%</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-400">Official Contact:</span>
-                            <span className="font-mono text-slate-300 text-[11px]">{sub.phone}</span>
+                            <span style={{ color: "var(--text-muted)" }}>Resolution Rate:</span>
+                            <span className="font-mono font-bold" style={{ color: "var(--green)" }}>{sub.workload?.resolution_rate}%</span>
                           </div>
                         </div>
                       </div>
 
-                      <div className="pt-3 border-t border-slate-800 flex gap-2">
+                      <div className="pt-3 border-t flex gap-2" style={{ borderColor: "var(--border-subtle)" }}>
                         <button
                           onClick={() => {
                             setTaskTargetSubordinate(sub.id);
                             setShowTaskModal(true);
                           }}
-                          className="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-semibold border border-amber-500/30 transition-colors cursor-pointer"
+                          className="btn-secondary py-2 text-xs flex-1"
                         >
                           Send Task
                         </button>
@@ -1594,7 +1683,8 @@ export default function OfficerDashboardView() {
                             setTransferOfficerId(sub.id);
                             setShowTransferModal(true);
                           }}
-                          className="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition-colors cursor-pointer"
+                          className="btn-secondary py-2 text-xs flex-1"
+                          style={{ borderColor: "rgba(var(--accent-1-rgb), 0.3)", color: "var(--accent-1)" }}
                         >
                           Transfer
                         </button>
@@ -1610,92 +1700,93 @@ export default function OfficerDashboardView() {
           {/* VIEW 6: AREA SCORECARD & ANALYTICS */}
           {/* ========================================================================= */}
           {activeSection === "scorecard" && scorecard && (
-            <div className="flex-1 min-w-0 flex flex-col p-4 lg:p-6 overflow-y-auto space-y-6">
-              <div className="pb-3 border-b border-slate-800">
-                <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+            <div className="flex-1 min-w-0 flex flex-col p-4 sm:p-6 overflow-y-auto space-y-5">
+              <div className="pb-3" style={{ borderBottom: "1px solid var(--border-primary)" }}>
+                <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2" style={{ fontFamily: "var(--font-title)", color: "var(--text-primary)" }}>
                   <span>📊</span>
                   <span>Jurisdiction Performance & Area Rating Scorecard</span>
                 </h2>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Comprehensive performance audit and citizen rating metrics for {officer.jurisdiction?.name}.
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                  Performance benchmarks and citizen rating metrics for {officer.jurisdiction?.name}.
                 </p>
               </div>
 
-              {/* KPI Stat Cards */}
+              {/* KPI Stat Cards (matches stats-row visual quality) */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl">
-                  <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+                <div className="officer-stat-kpi">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider block mb-1" style={{ color: "var(--text-muted)" }}>
                     Civic Quality Index
                   </span>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-2xl sm:text-3xl font-extrabold text-amber-400 font-mono">
+                    <span className="text-2xl sm:text-3xl font-extrabold font-mono" style={{ fontFamily: "var(--font-title)", color: "var(--accent-1)" }}>
                       {scorecard.civic_quality_score}
                     </span>
-                    <span className="text-xs text-slate-400">/ 100</span>
+                    <span className="text-xs" style={{ color: "var(--text-muted)" }}>/ 100</span>
                   </div>
-                  <span className="text-[10px] text-emerald-400 font-medium mt-1 block">Grade A Governance</span>
+                  <span className="text-[10px] font-bold mt-1 block" style={{ color: "var(--green)" }}>Grade A Governance</span>
                 </div>
 
-                <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl">
-                  <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+                <div className="officer-stat-kpi">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider block mb-1" style={{ color: "var(--text-muted)" }}>
                     Citizen Satisfaction
                   </span>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-2xl sm:text-3xl font-extrabold text-cyan-400 font-mono">
+                    <span className="text-2xl sm:text-3xl font-extrabold font-mono" style={{ fontFamily: "var(--font-title)", color: "var(--yellow)" }}>
                       {scorecard.citizen_satisfaction_rating}
                     </span>
-                    <span className="text-xs text-slate-400">★ out of 5</span>
+                    <span className="text-xs" style={{ color: "var(--text-muted)" }}>★ out of 5</span>
                   </div>
-                  <span className="text-[10px] text-slate-400 mt-1 block">Based on verification reviews</span>
+                  <span className="text-[10px] mt-1 block" style={{ color: "var(--text-muted)" }}>Based on verified reviews</span>
                 </div>
 
-                <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl">
-                  <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+                <div className="officer-stat-kpi">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider block mb-1" style={{ color: "var(--text-muted)" }}>
                     SLA On-Time Rate
                   </span>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-2xl sm:text-3xl font-extrabold text-emerald-400 font-mono">
+                    <span className="text-2xl sm:text-3xl font-extrabold font-mono" style={{ fontFamily: "var(--font-title)", color: "var(--green)" }}>
                       {scorecard.sla_compliance_rate}%
                     </span>
                   </div>
-                  <span className="text-[10px] text-emerald-400 mt-1 block">Within 72hr deadline</span>
+                  <span className="text-[10px] mt-1 block" style={{ color: "var(--green)" }}>Within 72hr deadline</span>
                 </div>
 
-                <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl">
-                  <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
-                    Total Handled
+                <div className="officer-stat-kpi">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider block mb-1" style={{ color: "var(--text-muted)" }}>
+                    Total Resolved
                   </span>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-2xl sm:text-3xl font-extrabold text-slate-100 font-mono">
-                      {scorecard.metrics?.total_complaints || 0}
+                    <span className="text-2xl sm:text-3xl font-extrabold font-mono" style={{ fontFamily: "var(--font-title)", color: "var(--text-primary)" }}>
+                      {scorecard.metrics?.resolved_complaints || 0}
                     </span>
+                    <span className="text-xs" style={{ color: "var(--text-muted)" }}>/ {scorecard.metrics?.total_complaints || 0}</span>
                   </div>
-                  <span className="text-[10px] text-slate-400 mt-1 block">
-                    {scorecard.metrics?.resolved_complaints || 0} resolved
-                  </span>
+                  <span className="text-[10px] mt-1 block" style={{ color: "var(--text-secondary)" }}>Redressed Grievances</span>
                 </div>
               </div>
 
-              {/* Category Breakdown Bars */}
-              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl">
-                <h4 className="text-sm font-bold text-white mb-3">Civic Issues Breakdown</h4>
-                <div className="space-y-3">
+              {/* Issue Category Breakdown */}
+              <div className="officer-card p-5 shadow-xl">
+                <h4 className="text-sm font-bold mb-4" style={{ fontFamily: "var(--font-title)", color: "var(--text-primary)" }}>
+                  Civic Issues Distribution
+                </h4>
+                <div className="space-y-3.5">
                   {Object.entries(scorecard.category_breakdown || {}).map(([cat, cnt], idx) => {
                     const total = scorecard.metrics?.total_complaints || 1;
                     const pct = Math.round((cnt / total) * 100);
                     return (
-                      <div key={idx} className="space-y-1">
+                      <div key={idx} className="space-y-1.5">
                         <div className="flex justify-between text-xs">
-                          <span className="font-medium text-slate-300 flex items-center gap-1.5">
+                          <span className="font-semibold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
                             <span>{ISSUE_ICONS[cat] || "📍"}</span>
                             <span>{cat}</span>
                           </span>
-                          <span className="font-mono text-slate-400">{cnt} cases ({pct}%)</span>
+                          <span className="font-mono text-xs" style={{ color: "var(--text-muted)" }}>{cnt} cases ({pct}%)</span>
                         </div>
-                        <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden">
+                        <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "var(--border-primary)" }}>
                           <div
-                            className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full"
-                            style={{ width: `${pct}%` }}
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{ width: `${pct}%`, background: "var(--accent-gradient)" }}
                           ></div>
                         </div>
                       </div>
@@ -1709,24 +1800,25 @@ export default function OfficerDashboardView() {
       </div>
 
       {/* ========================================================================= */}
-      {/* MODAL 1: TAKE ACTION ON COMPLAINT */}
+      {/* ALL MODALS (styled with user portal auth-modal-backdrop / glass aesthetic) */}
       {/* ========================================================================= */}
+      {/* MODAL 1: TAKE ACTION ON COMPLAINT */}
       {showActionModal && selectedComplaint && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-5 sm:p-6 shadow-2xl space-y-4 my-auto relative animate-in fade-in duration-150">
-            <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-800">
-              <div className="min-w-0">
-                <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+        <div className="auth-modal-backdrop">
+          <div className="officer-modal-box w-full max-w-lg p-6 shadow-2xl space-y-4 relative animate-in fade-in duration-150">
+            <div className="flex items-start justify-between gap-3 pb-3" style={{ borderBottom: "1px solid var(--border-primary)" }}>
+              <div>
+                <h3 className="text-base font-bold flex items-center gap-2" style={{ fontFamily: "var(--font-title)", color: "var(--text-primary)" }}>
                   <span>⚡</span>
                   <span>Take Administrative Action</span>
                 </h3>
-                <p className="text-[11px] font-mono text-slate-400 truncate mt-0.5">
+                <p className="text-xs font-mono mt-0.5" style={{ color: "var(--accent-1)" }}>
                   ID: {selectedComplaint.complaint_id} • {selectedComplaint.issue_type}
                 </p>
               </div>
               <button
                 onClick={() => setShowActionModal(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors shrink-0 text-sm cursor-pointer"
+                className="auth-modal-close"
               >
                 ✕
               </button>
@@ -1734,11 +1826,11 @@ export default function OfficerDashboardView() {
 
             <div className="space-y-3.5 text-xs">
               <div>
-                <label className="block text-slate-300 font-medium mb-1.5">Select Action</label>
+                <label className="block font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Action Type</label>
                 <select
                   value={actionType}
                   onChange={(e) => setActionType(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 rounded-xl p-2.5 text-slate-200 outline-none transition-colors"
+                  className="glass-select"
                 >
                   <option value="status_change">Progress Workflow Status</option>
                   <option value="schedule_inspection">Schedule Field Inspection</option>
@@ -1748,11 +1840,11 @@ export default function OfficerDashboardView() {
 
               {actionType === "status_change" && (
                 <div>
-                  <label className="block text-slate-300 font-medium mb-1.5">New Status</label>
+                  <label className="block font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>New Status</label>
                   <select
                     value={actionStatus}
                     onChange={(e) => setActionStatus(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 rounded-xl p-2.5 text-slate-200 outline-none transition-colors"
+                    className="glass-select"
                   >
                     <option value="Verified">Verified by Field Officer</option>
                     <option value="In Progress">Work In Progress / Execution</option>
@@ -1764,51 +1856,54 @@ export default function OfficerDashboardView() {
 
               {actionType === "schedule_inspection" && (
                 <div>
-                  <label className="block text-slate-300 font-medium mb-1.5">Inspection Date</label>
+                  <label className="block font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Inspection Date</label>
                   <input
                     type="date"
                     value={inspectionDate}
                     onChange={(e) => setInspectionDate(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 rounded-xl p-2.5 text-slate-200 outline-none transition-colors"
+                    className="glass-input"
                   />
                 </div>
               )}
 
               {actionType === "reject" ? (
                 <div>
-                  <label className="block text-rose-300 font-medium mb-1.5">Mandatory Rejection Reason</label>
+                  <label className="block font-semibold mb-1" style={{ color: "var(--red)" }}>Mandatory Rejection Reason</label>
                   <textarea
                     rows={3}
-                    placeholder="Provide official reason why this complaint cannot be processed..."
+                    placeholder="Provide official reason why this complaint cannot be redressed..."
                     value={rejectionReason}
                     onChange={(e) => setRejectionReason(e.target.value)}
-                    className="w-full bg-slate-950 border border-rose-500/40 focus:border-rose-400 focus:ring-1 focus:ring-rose-400/40 rounded-xl p-2.5 text-slate-200 placeholder-slate-500 outline-none transition-colors"
+                    className="glass-input"
+                    style={{ borderColor: "var(--red-border)" }}
                   />
                 </div>
               ) : (
                 <div>
-                  <label className="block text-slate-300 font-medium mb-1.5">Action Remarks / Notes</label>
+                  <label className="block font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Action Remarks / Execution Notes</label>
                   <textarea
                     rows={2}
                     placeholder="Enter official execution or inspection notes..."
                     value={actionNotes}
                     onChange={(e) => setActionNotes(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 rounded-xl p-2.5 text-slate-200 placeholder-slate-500 outline-none transition-colors"
+                    className="glass-input"
                   />
                 </div>
               )}
             </div>
 
-            <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
+            <div className="pt-3 border-t flex justify-end gap-2" style={{ borderColor: "var(--border-primary)" }}>
               <button
                 onClick={() => setShowActionModal(false)}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+                className="btn-secondary py-2 px-4 text-xs font-semibold"
+                style={{ width: "auto" }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleAdvanceStatus}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+                className="btn-primary py-2 px-5 text-xs font-bold"
+                style={{ width: "auto" }}
               >
                 Execute Action
               </button>
@@ -1817,25 +1912,23 @@ export default function OfficerDashboardView() {
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* MODAL 2: FORWARD TO UPPER SECTION */}
-      {/* ========================================================================= */}
+      {/* MODAL 2: FORWARD TO UPPER AUTHORITY */}
       {showForwardModal && selectedComplaint && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-5 sm:p-6 shadow-2xl space-y-4 my-auto relative animate-in fade-in duration-150">
-            <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-800">
-              <div className="min-w-0">
-                <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+        <div className="auth-modal-backdrop">
+          <div className="officer-modal-box w-full max-w-lg p-6 shadow-2xl space-y-4 relative animate-in fade-in duration-150">
+            <div className="flex items-start justify-between gap-3 pb-3" style={{ borderBottom: "1px solid var(--border-primary)" }}>
+              <div>
+                <h3 className="text-base font-bold flex items-center gap-2" style={{ fontFamily: "var(--font-title)", color: "var(--text-primary)" }}>
                   <span>↗</span>
                   <span>Forward Complaint to Upper Hierarchy</span>
                 </h3>
-                <p className="text-[11px] font-mono text-slate-400 truncate mt-0.5">
+                <p className="text-xs font-mono mt-0.5" style={{ color: "var(--accent-1)" }}>
                   ID: {selectedComplaint.complaint_id} • {selectedComplaint.place_name}
                 </p>
               </div>
               <button
                 onClick={() => setShowForwardModal(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors shrink-0 text-sm cursor-pointer"
+                className="auth-modal-close"
               >
                 ✕
               </button>
@@ -1843,11 +1936,11 @@ export default function OfficerDashboardView() {
 
             <div className="space-y-3.5 text-xs">
               <div>
-                <label className="block text-slate-300 font-medium mb-1.5">Target Administrative Tier</label>
+                <label className="block font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Target Administrative Tier</label>
                 <select
                   value={forwardTargetLevel}
                   onChange={(e) => setForwardTargetLevel(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 rounded-xl p-2.5 text-slate-200 outline-none transition-colors"
+                  className="glass-select"
                 >
                   <option value="zone">Zonal Executive Office</option>
                   <option value="district">District Magistrate (DM) / Municipal Commissioner</option>
@@ -1857,11 +1950,11 @@ export default function OfficerDashboardView() {
               </div>
 
               <div>
-                <label className="block text-slate-300 font-medium mb-1.5">Urgency Level</label>
+                <label className="block font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Urgency Level</label>
                 <select
                   value={forwardUrgency}
                   onChange={(e) => setForwardUrgency(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 rounded-xl p-2.5 text-slate-200 outline-none transition-colors"
+                  className="glass-select"
                 >
                   <option value="Normal">Normal</option>
                   <option value="High">High</option>
@@ -1870,27 +1963,29 @@ export default function OfficerDashboardView() {
               </div>
 
               <div>
-                <label className="block text-slate-300 font-medium mb-1.5">Escalation Justification</label>
+                <label className="block font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Escalation Justification</label>
                 <textarea
                   rows={3}
-                  placeholder="Explain why this requires senior intervention (e.g. jurisdiction dispute, budget shortage, utility overlap)..."
+                  placeholder="Explain why this requires senior intervention (e.g. utility jurisdiction conflict, budget shortage)..."
                   value={forwardJustification}
                   onChange={(e) => setForwardJustification(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 rounded-xl p-2.5 text-slate-200 placeholder-slate-500 outline-none transition-colors"
+                  className="glass-input"
                 />
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
+            <div className="pt-3 border-t flex justify-end gap-2" style={{ borderColor: "var(--border-primary)" }}>
               <button
                 onClick={() => setShowForwardModal(false)}
-                className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+                className="btn-secondary py-2 px-4 text-xs font-semibold"
+                style={{ width: "auto" }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleForwardUpper}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-slate-950 font-bold text-xs shadow-md shadow-orange-500/20 transition-all cursor-pointer"
+                className="btn-primary py-2 px-5 text-xs font-bold"
+                style={{ width: "auto" }}
               >
                 Submit Escalation Memo
               </button>
@@ -1899,25 +1994,23 @@ export default function OfficerDashboardView() {
         </div>
       )}
 
-      {/* ========================================================================= */}
       {/* MODAL 3: RAISE FUND REQUEST */}
-      {/* ========================================================================= */}
       {showFundModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-5 sm:p-6 shadow-2xl space-y-4 my-auto relative animate-in fade-in duration-150">
-            <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-800">
-              <div className="min-w-0">
-                <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+        <div className="auth-modal-backdrop">
+          <div className="officer-modal-box w-full max-w-lg p-6 shadow-2xl space-y-4 relative animate-in fade-in duration-150">
+            <div className="flex items-start justify-between gap-3 pb-3" style={{ borderBottom: "1px solid var(--border-primary)" }}>
+              <div>
+                <h3 className="text-base font-bold flex items-center gap-2" style={{ fontFamily: "var(--font-title)", color: "var(--text-primary)" }}>
                   <span>💰</span>
                   <span>Raise Civic Maintenance Fund Requisition</span>
                 </h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
                   Budget will be audited and routed according to administrative threshold rules.
                 </p>
               </div>
               <button
                 onClick={() => setShowFundModal(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors shrink-0 text-sm cursor-pointer"
+                className="auth-modal-close"
               >
                 ✕
               </button>
@@ -1925,32 +2018,33 @@ export default function OfficerDashboardView() {
 
             <div className="space-y-3.5 text-xs">
               <div>
-                <label className="block text-slate-300 font-medium mb-1.5">Requisition Title</label>
+                <label className="block font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Requisition Title</label>
                 <input
                   type="text"
                   placeholder="e.g. Emergency Bitumen Resurfacing on Naubasta Arterial"
                   value={fundTitle}
                   onChange={(e) => setFundTitle(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 rounded-xl p-2.5 text-slate-200 placeholder-slate-500 outline-none transition-colors"
+                  className="glass-input"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-medium mb-1.5">Required Amount (₹ INR)</label>
+                  <label className="block font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Amount (₹ INR)</label>
                   <input
                     type="number"
                     value={fundAmount}
                     onChange={(e) => setFundAmount(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 rounded-xl p-2.5 text-amber-300 font-mono font-bold outline-none transition-colors"
+                    className="glass-input font-mono font-bold"
+                    style={{ color: "var(--accent-1)" }}
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-medium mb-1.5">Urgency</label>
+                  <label className="block font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Urgency</label>
                   <select
                     value={fundUrgency}
                     onChange={(e) => setFundUrgency(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 rounded-xl p-2.5 text-slate-200 outline-none transition-colors"
+                    className="glass-select"
                   >
                     <option value="Normal">Normal</option>
                     <option value="High">High</option>
@@ -1960,11 +2054,11 @@ export default function OfficerDashboardView() {
               </div>
 
               <div>
-                <label className="block text-slate-300 font-medium mb-1.5">Budget Head</label>
+                <label className="block font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Budget Head</label>
                 <select
                   value={fundBudgetHead}
                   onChange={(e) => setFundBudgetHead(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 rounded-xl p-2.5 text-slate-200 outline-none transition-colors"
+                  className="glass-select"
                 >
                   <option value="Emergency Road & Drainage Restoration">Emergency Road & Drainage Restoration</option>
                   <option value="Solid Waste & Compactor Replacement">Solid Waste & Compactor Replacement</option>
@@ -1974,27 +2068,29 @@ export default function OfficerDashboardView() {
               </div>
 
               <div>
-                <label className="block text-slate-300 font-medium mb-1.5">Technical Justification</label>
+                <label className="block font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Technical Justification</label>
                 <textarea
                   rows={2}
                   placeholder="Technical justification and engineer recommendation..."
                   value={fundJustification}
                   onChange={(e) => setFundJustification(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 rounded-xl p-2.5 text-slate-200 placeholder-slate-500 outline-none transition-colors"
+                  className="glass-input"
                 />
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
+            <div className="pt-3 border-t flex justify-end gap-2" style={{ borderColor: "var(--border-primary)" }}>
               <button
                 onClick={() => setShowFundModal(false)}
-                className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+                className="btn-secondary py-2 px-4 text-xs font-semibold"
+                style={{ width: "auto" }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateFund}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+                className="btn-primary py-2 px-5 text-xs font-bold"
+                style={{ width: "auto" }}
               >
                 Submit Requisition
               </button>
@@ -2003,25 +2099,23 @@ export default function OfficerDashboardView() {
         </div>
       )}
 
-      {/* ========================================================================= */}
       {/* MODAL 4: DISPATCH OFFICIAL MEMO */}
-      {/* ========================================================================= */}
       {showMemoModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-5 sm:p-6 shadow-2xl space-y-4 my-auto relative animate-in fade-in duration-150">
-            <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-800">
-              <div className="min-w-0">
-                <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+        <div className="auth-modal-backdrop">
+          <div className="officer-modal-box w-full max-w-lg p-6 shadow-2xl space-y-4 relative animate-in fade-in duration-150">
+            <div className="flex items-start justify-between gap-3 pb-3" style={{ borderBottom: "1px solid var(--border-primary)" }}>
+              <div>
+                <h3 className="text-base font-bold flex items-center gap-2" style={{ fontFamily: "var(--font-title)", color: "var(--text-primary)" }}>
                   <span>✉️</span>
-                  <span>Dispatch Official Inter-Department Memo</span>
+                  <span>Dispatch Inter-Department Official Memo</span>
                 </h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Legally logged under UP Public Services Framework.
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                  Legally logged under the UP Public Services Guarantee Framework.
                 </p>
               </div>
               <button
                 onClick={() => setShowMemoModal(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors shrink-0 text-sm cursor-pointer"
+                className="auth-modal-close"
               >
                 ✕
               </button>
@@ -2029,11 +2123,11 @@ export default function OfficerDashboardView() {
 
             <div className="space-y-3.5 text-xs">
               <div>
-                <label className="block text-slate-300 font-medium mb-1.5">Recipient Authority</label>
+                <label className="block font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Recipient Authority</label>
                 <select
                   value={memoRecipientId}
                   onChange={(e) => setMemoRecipientId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700/80 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/40 rounded-xl p-2.5 text-slate-200 outline-none transition-colors"
+                  className="glass-select"
                 >
                   {AUTHORITIES_LIST.map((a) => (
                     <option key={a.id} value={a.id}>
@@ -2044,22 +2138,22 @@ export default function OfficerDashboardView() {
               </div>
 
               <div>
-                <label className="block text-slate-300 font-medium mb-1.5">Subject</label>
+                <label className="block font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Subject</label>
                 <input
                   type="text"
                   placeholder="e.g. Joint Site Inspection: Underground pipeline leakage"
                   value={memoSubject}
                   onChange={(e) => setMemoSubject(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700/80 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/40 rounded-xl p-2.5 text-slate-200 placeholder-slate-500 outline-none transition-colors"
+                  className="glass-input"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-300 font-medium mb-1.5">Priority</label>
+                <label className="block font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Priority</label>
                 <select
                   value={memoPriority}
                   onChange={(e) => setMemoPriority(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700/80 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/40 rounded-xl p-2.5 text-slate-200 outline-none transition-colors"
+                  className="glass-select"
                 >
                   <option value="Normal">Normal</option>
                   <option value="Urgent">Urgent (48 Hour Response)</option>
@@ -2068,27 +2162,29 @@ export default function OfficerDashboardView() {
               </div>
 
               <div>
-                <label className="block text-slate-300 font-medium mb-1.5">Official Memo Content</label>
+                <label className="block font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Official Memo Content</label>
                 <textarea
                   rows={4}
                   placeholder="Enter formal notice text and directives..."
                   value={memoBody}
                   onChange={(e) => setMemoBody(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700/80 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/40 rounded-xl p-2.5 text-slate-200 placeholder-slate-500 outline-none transition-colors"
+                  className="glass-input"
                 />
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
+            <div className="pt-3 border-t flex justify-end gap-2" style={{ borderColor: "var(--border-primary)" }}>
               <button
                 onClick={() => setShowMemoModal(false)}
-                className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+                className="btn-secondary py-2 px-4 text-xs font-semibold"
+                style={{ width: "auto" }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleSendMemo}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-bold text-xs shadow-md shadow-cyan-500/20 transition-all cursor-pointer"
+                className="btn-primary py-2 px-5 text-xs font-bold"
+                style={{ width: "auto" }}
               >
                 Dispatch Memo
               </button>
@@ -2097,25 +2193,23 @@ export default function OfficerDashboardView() {
         </div>
       )}
 
-      {/* ========================================================================= */}
       {/* MODAL 5: ASSIGN DIRECT TASK TO SUBORDINATE */}
-      {/* ========================================================================= */}
       {showTaskModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-5 sm:p-6 shadow-2xl space-y-4 my-auto relative animate-in fade-in duration-150">
-            <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-800">
-              <div className="min-w-0">
-                <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+        <div className="auth-modal-backdrop">
+          <div className="officer-modal-box w-full max-w-lg p-6 shadow-2xl space-y-4 relative animate-in fade-in duration-150">
+            <div className="flex items-start justify-between gap-3 pb-3" style={{ borderBottom: "1px solid var(--border-primary)" }}>
+              <div>
+                <h3 className="text-base font-bold flex items-center gap-2" style={{ fontFamily: "var(--font-title)", color: "var(--text-primary)" }}>
                   <span>⚡</span>
-                  <span>Assign Official Directive to Subordinate</span>
+                  <span>Assign Directive to Subordinate</span>
                 </h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
                   Direct task delegated with administrative accountability tracking.
                 </p>
               </div>
               <button
                 onClick={() => setShowTaskModal(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors shrink-0 text-sm cursor-pointer"
+                className="auth-modal-close"
               >
                 ✕
               </button>
@@ -2123,11 +2217,11 @@ export default function OfficerDashboardView() {
 
             <div className="space-y-3.5 text-xs">
               <div>
-                <label className="block text-slate-300 font-medium mb-1.5">Assignee (Junior Officer)</label>
+                <label className="block font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Assignee (Junior Officer)</label>
                 <select
                   value={taskTargetSubordinate}
                   onChange={(e) => setTaskTargetSubordinate(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 rounded-xl p-2.5 text-slate-200 outline-none transition-colors"
+                  className="glass-select"
                 >
                   {subordinates.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -2138,38 +2232,40 @@ export default function OfficerDashboardView() {
               </div>
 
               <div>
-                <label className="block text-slate-300 font-medium mb-1.5">Directive Title</label>
+                <label className="block font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Directive Title</label>
                 <input
                   type="text"
                   placeholder="e.g. Execute urgent road recarpeting by 5 PM"
                   value={taskTitle}
                   onChange={(e) => setTaskTitle(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 rounded-xl p-2.5 text-slate-200 placeholder-slate-500 outline-none transition-colors"
+                  className="glass-input"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-300 font-medium mb-1.5">Instructions & Terms</label>
+                <label className="block font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Instructions & Checklist</label>
                 <textarea
                   rows={3}
                   placeholder="Specific instructions, inspection checklist, and deadlines..."
                   value={taskInstructions}
                   onChange={(e) => setTaskInstructions(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 rounded-xl p-2.5 text-slate-200 placeholder-slate-500 outline-none transition-colors"
+                  className="glass-input"
                 />
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
+            <div className="pt-3 border-t flex justify-end gap-2" style={{ borderColor: "var(--border-primary)" }}>
               <button
                 onClick={() => setShowTaskModal(false)}
-                className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+                className="btn-secondary py-2 px-4 text-xs font-semibold"
+                style={{ width: "auto" }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleAssignTask}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+                className="btn-primary py-2 px-5 text-xs font-bold"
+                style={{ width: "auto" }}
               >
                 Issue Directive
               </button>
@@ -2178,25 +2274,23 @@ export default function OfficerDashboardView() {
         </div>
       )}
 
-      {/* ========================================================================= */}
       {/* MODAL 6: TRANSFER JUNIOR OFFICER */}
-      {/* ========================================================================= */}
       {showTransferModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-5 sm:p-6 shadow-2xl space-y-4 my-auto relative animate-in fade-in duration-150">
-            <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-800">
-              <div className="min-w-0">
-                <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+        <div className="auth-modal-backdrop">
+          <div className="officer-modal-box w-full max-w-lg p-6 shadow-2xl space-y-4 relative animate-in fade-in duration-150">
+            <div className="flex items-start justify-between gap-3 pb-3" style={{ borderBottom: "1px solid var(--border-primary)" }}>
+              <div>
+                <h3 className="text-base font-bold flex items-center gap-2" style={{ fontFamily: "var(--font-title)", color: "var(--text-primary)" }}>
                   <span>🔄</span>
                   <span>Issue Officer Transfer Order</span>
                 </h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
                   Official reallocation of municipal personnel within jurisdiction.
                 </p>
               </div>
               <button
                 onClick={() => setShowTransferModal(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors shrink-0 text-sm cursor-pointer"
+                className="auth-modal-close"
               >
                 ✕
               </button>
@@ -2204,11 +2298,11 @@ export default function OfficerDashboardView() {
 
             <div className="space-y-3.5 text-xs">
               <div>
-                <label className="block text-slate-300 font-medium mb-1.5">Select Subordinate Officer</label>
+                <label className="block font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Select Subordinate Officer</label>
                 <select
                   value={transferOfficerId}
                   onChange={(e) => setTransferOfficerId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 rounded-xl p-2.5 text-slate-200 outline-none transition-colors"
+                  className="glass-select"
                 >
                   {subordinates.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -2219,38 +2313,40 @@ export default function OfficerDashboardView() {
               </div>
 
               <div>
-                <label className="block text-slate-300 font-medium mb-1.5">New Assigned Ward / Jurisdiction</label>
+                <label className="block font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>New Assigned Ward / Jurisdiction</label>
                 <input
                   type="text"
                   placeholder="e.g. Ward 45 (Govind Nagar)"
                   value={transferWardName}
                   onChange={(e) => setTransferWardName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 rounded-xl p-2.5 text-slate-200 placeholder-slate-500 outline-none transition-colors"
+                  className="glass-input"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-300 font-medium mb-1.5">Transfer Justification</label>
+                <label className="block font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>Transfer Justification</label>
                 <textarea
                   rows={2}
                   placeholder="Administrative reason for transfer..."
                   value={transferReason}
                   onChange={(e) => setTransferReason(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 rounded-xl p-2.5 text-slate-200 placeholder-slate-500 outline-none transition-colors"
+                  className="glass-input"
                 />
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
+            <div className="pt-3 border-t flex justify-end gap-2" style={{ borderColor: "var(--border-primary)" }}>
               <button
                 onClick={() => setShowTransferModal(false)}
-                className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+                className="btn-secondary py-2 px-4 text-xs font-semibold"
+                style={{ width: "auto" }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleTransferOfficer}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+                className="btn-primary py-2 px-5 text-xs font-bold"
+                style={{ width: "auto" }}
               >
                 Issue Transfer Order
               </button>
