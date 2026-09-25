@@ -2275,11 +2275,76 @@ svg:focus-visible {
 
 .officer-portal-root {
   font-family: var(--font-body), -apple-system, sans-serif;
+  color: var(--text-primary);
 }
 
 .officer-portal-btn:hover {
   filter: brightness(1.15);
   transform: translateY(-1px);
+}
+
+.officer-card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--glass-shadow);
+  transition: all 0.25s ease;
+}
+
+.officer-card:hover {
+  border-color: var(--glass-border-hover);
+  box-shadow: var(--glass-shadow-lg);
+}
+
+.officer-badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-family: monospace;
+  font-weight: 600;
+  border: 1px solid rgba(var(--accent-1-rgb), 0.3);
+  background: rgba(var(--accent-1-rgb), 0.1);
+  color: var(--accent-1);
+}
+
+.officer-stat-kpi {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  box-shadow: var(--glass-shadow);
+  transition: all 0.25s ease;
+}
+
+.officer-stat-kpi:hover {
+  border-color: var(--glass-border-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--glass-shadow-lg);
+}
+
+.officer-drawer {
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur-heavy);
+  -webkit-backdrop-filter: var(--glass-blur-heavy);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow-lg);
+  border-radius: var(--radius-lg);
+}
+
+.officer-modal-box {
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur-heavy);
+  -webkit-backdrop-filter: var(--glass-blur-heavy);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow-lg);
+  border-radius: var(--radius-lg);
 }
 
 
