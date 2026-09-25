@@ -5,7 +5,7 @@ export const metadata = {
 
 export default function OfficerLayout({ children }) {
   return (
-    <div className="officer-portal-root min-h-screen w-full flex flex-col bg-slate-950 text-slate-100">
+    <div className="officer-portal-root min-h-screen w-full flex flex-col relative">
       {children}
     </div>
   );
